@@ -1,6 +1,6 @@
 spring:
   application:
-    name: spring-vadin
+    name: ${APPLICATION_NAME}
   profiles:
     active: dev
   config:
@@ -35,7 +35,7 @@ spring:
     type: redis
     redis:
       use-key-prefix: true
-      key-prefix: "vadin:cache:"
+      key-prefix: "totp:cache:"
 
 server:
   port: ${SERVER_PORT}
@@ -60,3 +60,9 @@ application:
       expiration: ${JWT_EXPIRATION_MS}
       refresh-token:
         expiration: ${JWT_REFRESH_EXPIRATION_MS}
+      mfa-expiration: ${JWT_MFA_EXPIRATION}
+
+  resend:
+    api-key: ${RESEND_API_KEY}
+    from-email: ${RESEND_FROM_EMAIL}
+    base-url: ${RESEND_BASE_URL}

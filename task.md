@@ -1,6 +1,6 @@
 # TOTP & Mandatory MFA on Logout Implementation Roadmap
 
-Technical task backlog and engineering specification for implementing Time-based One-Time Password (TOTP) Two-Factor Authentication with the business rule: **Users are required to enable TOTP prior to logging out**.
+Technical task backlog and engineering specification for implementing Time-based One-Time Password (TOTP) Two-Factor Authentication with the business rule: **Users are required to enable TOTP prior to logging out**, complemented with **Asynchronous Security Email Notifications via Resend**.
 
 ---
 
@@ -14,6 +14,7 @@ Technical task backlog and engineering specification for implementing Time-based
 5. Subsequent login attempts for MFA-enabled accounts:
    - Primary credential validation returns `mfaRequired: true` along with an ephemeral `tempToken`.
    - The TOTP verification endpoint exchanges the `tempToken` and valid 6-digit code for fully authenticated access and refresh tokens.
+6. When a user activates TOTP (`enableTotp`), the system dispatches an asynchronous security notification email via Resend to the user's registered email without degrading or blocking the primary auth transaction response.
 
 ---
 
@@ -36,6 +37,12 @@ Technical task backlog and engineering specification for implementing Time-based
   - [x] Task 4.2: Update Spring Security Filter Chain in `SecurityConfig` (`permitAll()` on `/api/v1/auth/totp/verify`, authenticated for others).
 - **Phase 5: Verification & Quality Assurance**: In Progress
   - Verification with automated compilation & unit testing ready.
+- **Phase 6: Email Notification Integration via Resend (Event-Driven REST API)**: In Progress
+  - [x] Task 6.1: Environment configuration & Async/RestClient Setup.
+  - [/] Task 6.2: Resend API DTOs and `EmailService` abstraction (in progress).
+  - [ ] Task 6.3: Domain Event & `@Async` Event Listener.
+  - [ ] Task 6.4: Event Publishing integration in `AuthServiceImpl`.
+  - [ ] Task 6.5: Unit & integration testing.
 
 ---
 
@@ -178,3 +185,84 @@ Technical task backlog and engineering specification for implementing Time-based
   - Verification: Returns `mfaRequired: true` and `tempToken`; no standard access token provided.
   - Invoke `POST /api/v1/auth/totp/verify` with `tempToken` and current 6-digit code.
   - Verification: Successfully returns full `token` and `refreshToken`.
+- [ ] **Test Case 7: Asynchronous Security Email Dispatch on TOTP Activation**
+  - Invoke `POST /api/v1/auth/totp/enable` with valid 6-digit code.
+  - Verification: HTTP `200 OK` returns promptly without waiting for remote HTTP email response.
+  - Inspect server application logs: Confirm asynchronous dispatch event was processed and Resend API returned email ID successfully.
+
+---
+
+### Phase 6: Email Notification Integration via Resend (Option A: Event-Driven REST API)
+
+- [x] **Task 6.1: Environment & Async/RestClient Configuration**
+  - **Status**: Completed
+  - **Target Files**:
+    - `src/main/resources/application.yaml`
+    - `.env` & `env.example`
+    - [AsyncConfig.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/config/AsyncConfig.java)
+    - [ResendProperties.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/config/ResendProperties.java)
+    - [RestClientConfig.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/config/RestClientConfig.java)
+  - **Requirements**:
+    1. Define environment properties:
+       - `application.resend.api-key=${RESEND_API_KEY}`
+       - `application.resend.from-email=${RESEND_FROM_EMAIL}`
+       - `application.resend.base-url=${RESEND_BASE_URL}`
+    2. Create `AsyncConfig` with `@Configuration`, `@EnableAsync`, and custom executor `emailExecutor`.
+    3. Create `ResendProperties` using `@ConfigurationProperties(prefix = "application.resend")` with `@ConfigurationPropertiesScan` on main application.
+    4. Create `RestClientConfig` declaring `RestClient` bean pre-configured with timeout, `baseUrl`, and authorization header.
+
+- [/] **Task 6.2: Create Resend DTOs & `EmailService` Interface and Implementation**
+  - **Status**: In Progress
+  - **Target Files**:
+    - [ResendEmailRequest.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/dto/email/ResendEmailRequest.java) (Created, pending fields)
+    - [ResendEmailResponse.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/dto/email/ResendEmailResponse.java)
+    - [EmailService.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/EmailService.java)
+    - [ResendEmailServiceImpl.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/impl/ResendEmailServiceImpl.java)
+  - **Requirements & Method Specifications**:
+    1. `ResendEmailRequest`: Record or class with fields `from` (String), `to` (List<String>), `subject` (String), and `html` (String).
+    2. `ResendEmailResponse`: Record or class with field `id` (String).
+    3. Interface `EmailService`:
+       - `void sendEmail(String to, String subject, String htmlContent)`
+       - `void sendTotpEnabledAlert(String to, String username)`
+    4. Implementation `ResendEmailServiceImpl`:
+       - Inject configured `RestClient` and properties.
+       - Implement `sendEmail`: Execute `POST /emails` via `RestClient`. Log response ID on success.
+       - Implement `sendTotpEnabledAlert`: Build clean HTML template informing the user that TOTP 2FA was enabled on their account, including account username and security advice.
+       - Enforce failure isolation: Catch exceptions and log warnings with SLF4J (`log.error(...)`) so upstream caller remains unaffected.
+
+- [ ] **Task 6.3: Implement Domain Event & Asynchronous Notification Listener**
+  - **Status**: Not Started
+  - **Target Files**:
+    - [TotpEnabledEvent.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/event/TotpEnabledEvent.java)
+    - [TotpSecurityNotificationListener.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/event/listener/TotpSecurityNotificationListener.java)
+  - **Requirements & Execution Flow**:
+    1. Create event object `TotpEnabledEvent` (record) with fields:
+       - `email` (String)
+       - `username` (String)
+       - `timestamp` (Instant)
+    2. Create listener component `TotpSecurityNotificationListener`:
+       - Annotate method `onTotpEnabled(TotpEnabledEvent event)` with `@Async` and `@EventListener` (or `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`).
+       - Invoke `emailService.sendTotpEnabledAlert(event.email(), event.username())`.
+       - Wrap with try-catch to ensure failure in mail transport never rolls back database transactions.
+
+- [ ] **Task 6.4: Integrate Event Dispatch in `AuthServiceImpl`**
+  - **Status**: Not Started
+  - **Target File**: [AuthServiceImpl.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/impl/AuthServiceImpl.java)
+  - **Method**: `void enableTotp(String username, String code)`
+  - **Execution Flow**:
+    1. Inject `ApplicationEventPublisher`.
+    2. In `enableTotp`:
+       - Execute standard code validation and set `user.setIsTotpEnabled(true)` then save via `userRepository.save(user)`.
+       - Immediately dispatch domain event:
+         `eventPublisher.publishEvent(new TotpEnabledEvent(user.getEmail(), user.getUsername(), Instant.now()))`.
+
+- [ ] **Task 6.5: Verification & Quality Assurance**
+  - **Status**: Not Started
+  - **Target Files**:
+    - [ResendEmailServiceImplTest.java](file:///e:/project/spring-totp/src/test/java/com/java/springtotp/service/ResendEmailServiceImplTest.java)
+    - [AuthServiceImplTest.java](file:///e:/project/spring-totp/src/test/java/com/java/springtotp/service/AuthServiceImplTest.java)
+  - **Requirements**:
+    1. Unit test `ResendEmailServiceImpl`: Validate REST request body and header serialization using `MockRestServiceServer` or Mockito.
+    2. Unit test `AuthServiceImpl`: Verify `eventPublisher.publishEvent(any(TotpEnabledEvent.class))` is called once on successful TOTP enable.
+    3. Full test suite verification via `rtk ./gradlew test`.
+

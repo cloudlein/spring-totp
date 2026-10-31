@@ -50,3 +50,6 @@ http-client.private.env.json
 hs_err_pid*.log
 replay_pid*.log
 *.log
+AGENTS.md
+
+skills-lock.json

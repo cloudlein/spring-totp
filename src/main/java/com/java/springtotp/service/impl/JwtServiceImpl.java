@@ -31,7 +31,7 @@ public class JwtServiceImpl implements JwtService {
     @Value("${application.security.jwt.refresh-token.expiration}")
     private long refreshExpiration;
 
-    @Value("${JWT_MFA_EXPIRATION}")
+    @Value("${application.security.jwt.mfa-expiration}")
     private long jwtMfaExpiration;
 
     @Override
