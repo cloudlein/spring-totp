@@ -61,6 +61,8 @@ dependencies {
     implementation 'com.github.kenglxn.QRGen:javase:3.0.1'
 
     implementation 'commons-codec:commons-codec:1.23.0'
+
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 }
 
 tasks.named('test') {

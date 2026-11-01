@@ -39,7 +39,7 @@ Technical task backlog and engineering specification for implementing Time-based
   - Verification with automated compilation & unit testing ready.
 - **Phase 6: Email Notification Integration via Resend (Event-Driven REST API)**: In Progress
   - [x] Task 6.1: Environment configuration & Async/RestClient Setup.
-  - [/] Task 6.2: Resend API DTOs and `EmailService` abstraction (in progress).
+  - [x] Task 6.2: Resend API DTOs, Thymeleaf template, and `EmailService` implementation.
   - [ ] Task 6.3: Domain Event & `@Async` Event Listener.
   - [ ] Task 6.4: Event Publishing integration in `AuthServiceImpl`.
   - [ ] Task 6.5: Unit & integration testing.
@@ -211,24 +211,25 @@ Technical task backlog and engineering specification for implementing Time-based
     3. Create `ResendProperties` using `@ConfigurationProperties(prefix = "application.resend")` with `@ConfigurationPropertiesScan` on main application.
     4. Create `RestClientConfig` declaring `RestClient` bean pre-configured with timeout, `baseUrl`, and authorization header.
 
-- [/] **Task 6.2: Create Resend DTOs & `EmailService` Interface and Implementation**
-  - **Status**: In Progress
+- [x] **Task 6.2: Create Resend DTOs & `EmailService` Interface and Implementation**
+  - **Status**: Completed
   - **Target Files**:
-    - [ResendEmailRequest.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/dto/email/ResendEmailRequest.java) (Created, pending fields)
+    - [ResendEmailRequest.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/dto/email/ResendEmailRequest.java)
     - [ResendEmailResponse.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/dto/email/ResendEmailResponse.java)
     - [EmailService.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/EmailService.java)
-    - [ResendEmailServiceImpl.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/impl/ResendEmailServiceImpl.java)
+    - [EmailServiceImpl.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/impl/EmailServiceImpl.java)
+    - [totp-enabled.html](file:///e:/project/spring-totp/src/main/resources/templates/totp-enabled.html)
   - **Requirements & Method Specifications**:
-    1. `ResendEmailRequest`: Record or class with fields `from` (String), `to` (List<String>), `subject` (String), and `html` (String).
-    2. `ResendEmailResponse`: Record or class with field `id` (String).
+    1. `ResendEmailRequest`: DTO with fields `from`, `to`, `subject`, and `htmlContent` (Lombok builder/getters/setters).
+    2. `ResendEmailResponse`: DTO with field `id`.
     3. Interface `EmailService`:
-       - `void sendEmail(String to, String subject, String htmlContent)`
-       - `void sendTotpEnabledAlert(String to, String username)`
-    4. Implementation `ResendEmailServiceImpl`:
-       - Inject configured `RestClient` and properties.
-       - Implement `sendEmail`: Execute `POST /emails` via `RestClient`. Log response ID on success.
-       - Implement `sendTotpEnabledAlert`: Build clean HTML template informing the user that TOTP 2FA was enabled on their account, including account username and security advice.
-       - Enforce failure isolation: Catch exceptions and log warnings with SLF4J (`log.error(...)`) so upstream caller remains unaffected.
+       - `void sendEmail(ResendEmailRequest request)`
+       - `void senTotpEnabledAlert(String to, String username)`
+    4. Implementation `EmailServiceImpl`:
+       - Injects configured `RestClient`, `ResendProperties`, and Thymeleaf `TemplateEngine`.
+       - Implements `sendEmail`: Executes `POST /emails` via `RestClient`.
+       - Implements `senTotpEnabledAlert`: Renders `totp-enabled.html` template via Thymeleaf with dynamic context variables (`to`, `username`, `enabledAt`, `supportEmail`).
+       - Enforces error containment: Logs errors without interrupting callers.
 
 - [ ] **Task 6.3: Implement Domain Event & Asynchronous Notification Listener**
   - **Status**: Not Started

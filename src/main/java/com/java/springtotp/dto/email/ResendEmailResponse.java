@@ -11,6 +11,6 @@ import lombok.NoArgsConstructor;
 @Builder
 public class ResendEmailResponse {
 
-    
+    private String id;
 
 }
