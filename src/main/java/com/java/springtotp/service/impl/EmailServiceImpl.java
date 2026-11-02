@@ -40,7 +40,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    public void senTotpEnabledAlert(String to, String username) {
+    public void sendTotpEnabledAlert(String to, String username) {
         try {
             Context context = new Context();
             context.setVariable("to", to);

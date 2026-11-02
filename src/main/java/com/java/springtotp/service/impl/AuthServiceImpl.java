@@ -1,6 +1,7 @@
 package com.java.springtotp.service.impl;
 
 import com.java.springtotp.dto.auth.*;
+import com.java.springtotp.event.TotpEnabledEvent;
 import com.java.springtotp.exception.BadRequestException;
 import com.java.springtotp.exception.InvalidTokenException;
 import com.java.springtotp.exception.ResourceAlreadyExistsException;
@@ -14,6 +15,7 @@ import com.java.springtotp.service.*;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -23,6 +25,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
 
 @RequiredArgsConstructor
 @Service
@@ -37,6 +41,7 @@ public class AuthServiceImpl implements AuthService {
     private final TokenBlacklistService tokenBlacklistService;
     private final UserDetailsService userDetailsService;
     private final TotpService totpService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${APPLICATION_NAME}")
     private String applicationName;
@@ -73,7 +78,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    @Transactional()
+    @Transactional
     @Override
     public AuthResponse register(RegisterRequest registerRequest) {
         if (userRepository.existsByName(registerRequest.getName())) {
@@ -140,10 +145,9 @@ public class AuthServiceImpl implements AuthService {
                 .token(newAccessToken)
                 .refreshToken(newRefreshToken)
                 .build();
-
-
     }
 
+    @Transactional
     @Override
     public TotpSetupResponse setupTotp(String username) {
         User user =  getUserByUsername(username);
@@ -165,6 +169,7 @@ public class AuthServiceImpl implements AuthService {
 
     }
 
+    @Transactional
     @Override
     public void enableTotp(String username, String code) {
         User user = getUserByUsername(username);
@@ -175,6 +180,7 @@ public class AuthServiceImpl implements AuthService {
 
         user.setIsTotpEnabled(true);
         userRepository.save(user);
+        eventPublisher.publishEvent(new TotpEnabledEvent(user.getEmail(), user.getUsername(), Instant.now()));
 
     }
 
