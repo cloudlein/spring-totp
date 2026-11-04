@@ -1,10 +1,10 @@
-package com.java.springvadin;
+package com.java.springtotp;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class SpringVadinApplicationTests {
+class SpringTotpApplicationTests {
 
     @Test
     void contextLoads() {

@@ -217,7 +217,7 @@ class AuthControllerTest {
 
 #### Comprehensive 7 Test Case Scenarios (Engineering Specification & Guidance)
 
-- [ ] **Test Case 1: Initial Registration & Login**
+- [x] **Test Case 1: Initial Registration & Login**
   - **Target File**: [AuthControllerTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerTest.java)
   - **Execution Flow**:
     1. Dispatch `POST /api/v1/auth/register` with unique user credentials.

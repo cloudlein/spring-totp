@@ -58,7 +58,7 @@ public class AuthServiceImpl implements AuthService {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         User user = getUserByUsername(userDetails.getUsername());
 
-        if (!user.getIsTotpEnabled() || user.getIsTotpEnabled() == null) {
+        if (user.getIsTotpEnabled() == null || !user.getIsTotpEnabled()) {
             String accessToken = jwtService.generateToken(userDetails);
             String refreshToken = jwtService.generateTokenRefresh(userDetails);
 
@@ -98,6 +98,7 @@ public class AuthServiceImpl implements AuthService {
         Role role = roleRepository.findByRole("USER")
                 .orElseThrow(() -> new ResourceNotFoundException("role not found"));
         user.setRole(role);
+        user.setIsTotpEnabled(false);
         userRepository.save(user);
 
         return AuthResponse.builder()
