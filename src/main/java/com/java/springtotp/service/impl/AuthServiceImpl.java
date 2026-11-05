@@ -175,13 +175,14 @@ public class AuthServiceImpl implements AuthService {
     public void enableTotp(String username, String code) {
         User user = getUserByUsername(username);
 
-        if (!totpService.verifyCode(code, user.getTotpSecret())) {
+        if (!totpService.verifyCode(user.getTotpSecret(), code)) {
             throw new BadRequestException("invalid TOTP verification code");
         }
 
         user.setIsTotpEnabled(true);
         userRepository.save(user);
-        eventPublisher.publishEvent(new TotpEnabledEvent(user.getEmail(), user.getUsername(), Instant.now()));
+        TotpEnabledEvent event = new TotpEnabledEvent(user.getEmail(), user.getUsername(), Instant.now());
+        eventPublisher.publishEvent(event);
 
     }
 

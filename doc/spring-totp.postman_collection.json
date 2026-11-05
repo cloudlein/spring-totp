@@ -1,0 +1,1167 @@
+{
+  "info": {
+    "_postman_id": "f4519955-3b3a-42b7-a836-90e5ea11a1ff",
+    "name": "Spring Boot TOTP & MFA API",
+    "description": "Dokumentasi Lengkap API Spring Boot TOTP & Two-Factor Authentication dengan Role & User Management.\n\nFitur:\n- Auto-capture Bearer Tokens (Access Token, Refresh Token, Temp MFA Token)\n- Auto TOTP Generator pada Pre-request Script (menggunakan CryptoJS)\n- Visualisasi QR Code pada endpoint TOTP Setup\n- Pengujian otomatis (Tests assertions) untuk setiap endpoint",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "superadmin",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Password123!",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tempToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "totpSecret",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "totpCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "roleId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. Authentication & TOTP",
+      "description": "Endpoints untuk Registrasi, Login, MFA/TOTP setup & verify, Token Refresh, serta Logout.",
+      "item": [
+        {
+          "name": "1. Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 201', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Register success status', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"username\": \"janedoe\",\n  \"email\": \"janedoe@example.com\",\n  \"password\": \"Password123!\",\n  \"confirmPassword\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Mendaftarkan user baru dengan role default USER dan `isTotpEnabled = false`."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Login (Primary Credential)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Response is successful', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});",
+                  "",
+                  "if (jsonData.data) {",
+                  "    if (jsonData.data.mfaRequired === true) {",
+                  "        pm.test('MFA is required: tempToken extracted', function () {",
+                  "            pm.expect(jsonData.data.tempToken).to.be.a('string');",
+                  "        });",
+                  "        if (pm.environment) pm.environment.set('tempToken', jsonData.data.tempToken);",
+                  "        pm.collectionVariables.set('tempToken', jsonData.data.tempToken);",
+                  "        console.log('MFA is required. Saved tempToken.');",
+                  "    } else if (jsonData.data.token) {",
+                  "        pm.test('Direct login successful: tokens received', function () {",
+                  "            pm.expect(jsonData.data.token).to.be.a('string');",
+                  "        });",
+                  "        if (pm.environment) {",
+                  "            pm.environment.set('accessToken', jsonData.data.token);",
+                  "            pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "        }",
+                  "        pm.collectionVariables.set('accessToken', jsonData.data.token);",
+                  "        pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "        console.log('Login successful. Saved accessToken and refreshToken.');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login kredensial dasar. Jika TOTP belum aktif, langsung mengembalikan `token` dan `refreshToken`. Jika TOTP aktif, mengembalikan `mfaRequired: true` dan `tempToken`."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Setup TOTP (Get QR Code & Secret)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Contains TOTP setup properties', function () {",
+                  "    pm.expect(jsonData.data).to.have.property('secretKey');",
+                  "    pm.expect(jsonData.data).to.have.property('qrCodeDataUrl');",
+                  "    pm.expect(jsonData.data).to.have.property('manualUri');",
+                  "});",
+                  "",
+                  "if (jsonData.data && jsonData.data.secretKey) {",
+                  "    if (pm.environment) pm.environment.set('totpSecret', jsonData.data.secretKey);",
+                  "    pm.collectionVariables.set('totpSecret', jsonData.data.secretKey);",
+                  "    console.log('Saved totpSecret: ' + jsonData.data.secretKey);",
+                  "}",
+                  "",
+                  "// Visualizer for Postman (renders QR code in Visualize tab)",
+                  "var template = `",
+                  "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center; padding: 25px; background: #f8f9fa;\">",
+                  "    <div style=\"background: #ffffff; padding: 25px; display: inline-block; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); max-width: 400px;\">",
+                  "        <h2 style=\"color: #2c3e50; margin-top: 0;\">🔐 Two-Factor Setup</h2>",
+                  "        <p style=\"color: #7f8c8d; font-size: 14px;\">Scan gambar QR ini di aplikasi Authenticator (Google Authenticator, Authy, dll):</p>",
+                  "        <div style=\"margin: 15px 0;\">",
+                  "            <img src=\"{{qrCodeDataUrl}}\" alt=\"TOTP QR Code\" style=\"width: 220px; height: 220px; border: 1px solid #e1e8ed; border-radius: 8px;\" />",
+                  "        </div>",
+                  "        <div style=\"text-align: left; background: #edf2f7; padding: 12px; border-radius: 6px; font-size: 13px;\">",
+                  "            <p style=\"margin: 0 0 5px 0;\"><strong>Secret Key:</strong></p>",
+                  "            <code style=\"background: #ffffff; padding: 4px 8px; border-radius: 4px; display: block; font-family: monospace; font-size: 13px; color: #e74c3c; word-break: break-all;\">{{secretKey}}</code>",
+                  "            <p style=\"margin: 10px 0 5px 0;\"><strong>Manual URI:</strong></p>",
+                  "            <span style=\"color: #555; word-break: break-all; font-size: 11px;\">{{manualUri}}</span>",
+                  "        </div>",
+                  "    </div>",
+                  "</div>",
+                  "`;",
+                  "",
+                  "if (jsonData.data) {",
+                  "    pm.visualizer.set(template, {",
+                  "        qrCodeDataUrl: jsonData.data.qrCodeDataUrl,",
+                  "        secretKey: jsonData.data.secretKey,",
+                  "        manualUri: jsonData.data.manualUri",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/totp/setup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "totp",
+                "setup"
+              ]
+            },
+            "description": "Mengambil parameter setup TOTP: Secret Key (Base32), QR code data URI, dan URI manual. Membutuhkan Bearer Token. Hasil `secretKey` otomatis disimpan ke variabel `totpSecret` dan QR Code dapat dilihat di tab **Visualize**."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Enable TOTP (Activate 2FA)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Function to generate 6-digit TOTP code using built-in CryptoJS",
+                  "function base32tohex(base32) {",
+                  "    var base32chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';",
+                  "    var bits = '';",
+                  "    var hex = '';",
+                  "    base32 = base32.replace(/=+$/, '').toUpperCase().replace(/\\s+/g, '');",
+                  "    for (var i = 0; i < base32.length; i++) {",
+                  "        var val = base32chars.indexOf(base32.charAt(i));",
+                  "        if (val === -1) continue;",
+                  "        var b = val.toString(2);",
+                  "        while (b.length < 5) b = '0' + b;",
+                  "        bits += b;",
+                  "    }",
+                  "    for (var j = 0; j + 4 <= bits.length; j += 4) {",
+                  "        var chunk = bits.substring(j, j + 4);",
+                  "        hex += parseInt(chunk, 2).toString(16);",
+                  "    }",
+                  "    return hex;",
+                  "}",
+                  "",
+                  "function generateTOTP(secret) {",
+                  "    if (!secret) return null;",
+                  "    var epoch = Math.floor(Date.now() / 1000);",
+                  "    var counter = Math.floor(epoch / 30);",
+                  "    var hexCounter = counter.toString(16);",
+                  "    while (hexCounter.length < 16) hexCounter = '0' + hexCounter;",
+                  "",
+                  "    var key = CryptoJS.enc.Hex.parse(base32tohex(secret));",
+                  "    var message = CryptoJS.enc.Hex.parse(hexCounter);",
+                  "",
+                  "    var hmac = CryptoJS.HmacSHA1(message, key);",
+                  "    var hmacHex = hmac.toString(CryptoJS.enc.Hex);",
+                  "",
+                  "    var offset = parseInt(hmacHex.substring(hmacHex.length - 2), 16) & 0xf;",
+                  "    var sub = hmacHex.substring(offset * 2, offset * 2 + 8);",
+                  "    var binary = parseInt(sub, 16) & 0x7fffffff;",
+                  "    var otp = (binary % 1000000).toString();",
+                  "    while (otp.length < 6) otp = '0' + otp;",
+                  "    return otp;",
+                  "}",
+                  "",
+                  "var secret = pm.environment.get('totpSecret') || pm.collectionVariables.get('totpSecret');",
+                  "if (secret) {",
+                  "    var code = generateTOTP(secret);",
+                  "    if (code) {",
+                  "        if (pm.environment) pm.environment.set('totpCode', code);",
+                  "        pm.collectionVariables.set('totpCode', code);",
+                  "        console.log('Auto-calculated TOTP Code: ' + code);",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('TOTP successfully activated', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.message).to.include('success enable totp');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{totpCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/totp/enable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "totp",
+                "enable"
+              ]
+            },
+            "description": "Mengaktifkan TOTP dengan memverifikasi 6-digit kode OTP. Script pre-request otomatis menghitung kode OTP dari `totpSecret` jika tersedia."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Verify TOTP (Login Step 2)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Function to generate 6-digit TOTP code using built-in CryptoJS",
+                  "function base32tohex(base32) {",
+                  "    var base32chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';",
+                  "    var bits = '';",
+                  "    var hex = '';",
+                  "    base32 = base32.replace(/=+$/, '').toUpperCase().replace(/\\s+/g, '');",
+                  "    for (var i = 0; i < base32.length; i++) {",
+                  "        var val = base32chars.indexOf(base32.charAt(i));",
+                  "        if (val === -1) continue;",
+                  "        var b = val.toString(2);",
+                  "        while (b.length < 5) b = '0' + b;",
+                  "        bits += b;",
+                  "    }",
+                  "    for (var j = 0; j + 4 <= bits.length; j += 4) {",
+                  "        var chunk = bits.substring(j, j + 4);",
+                  "        hex += parseInt(chunk, 2).toString(16);",
+                  "    }",
+                  "    return hex;",
+                  "}",
+                  "",
+                  "function generateTOTP(secret) {",
+                  "    if (!secret) return null;",
+                  "    var epoch = Math.floor(Date.now() / 1000);",
+                  "    var counter = Math.floor(epoch / 30);",
+                  "    var hexCounter = counter.toString(16);",
+                  "    while (hexCounter.length < 16) hexCounter = '0' + hexCounter;",
+                  "",
+                  "    var key = CryptoJS.enc.Hex.parse(base32tohex(secret));",
+                  "    var message = CryptoJS.enc.Hex.parse(hexCounter);",
+                  "",
+                  "    var hmac = CryptoJS.HmacSHA1(message, key);",
+                  "    var hmacHex = hmac.toString(CryptoJS.enc.Hex);",
+                  "",
+                  "    var offset = parseInt(hmacHex.substring(hmacHex.length - 2), 16) & 0xf;",
+                  "    var sub = hmacHex.substring(offset * 2, offset * 2 + 8);",
+                  "    var binary = parseInt(sub, 16) & 0x7fffffff;",
+                  "    var otp = (binary % 1000000).toString();",
+                  "    while (otp.length < 6) otp = '0' + otp;",
+                  "    return otp;",
+                  "}",
+                  "",
+                  "var secret = pm.environment.get('totpSecret') || pm.collectionVariables.get('totpSecret');",
+                  "if (secret) {",
+                  "    var code = generateTOTP(secret);",
+                  "    if (code) {",
+                  "        if (pm.environment) pm.environment.set('totpCode', code);",
+                  "        pm.collectionVariables.set('totpCode', code);",
+                  "        console.log('Auto-calculated TOTP Code: ' + code);",
+                  "    }",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('TOTP verify success & tokens received', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.data).to.have.property('token');",
+                  "    pm.expect(jsonData.data).to.have.property('refreshToken');",
+                  "});",
+                  "",
+                  "if (jsonData.data && jsonData.data.token) {",
+                  "    if (pm.environment) {",
+                  "        pm.environment.set('accessToken', jsonData.data.token);",
+                  "        pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "    }",
+                  "    pm.collectionVariables.set('accessToken', jsonData.data.token);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "    console.log('TOTP verified! Saved accessToken and refreshToken.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tempToken\": \"{{tempToken}}\",\n  \"code\": \"{{totpCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/totp/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "totp",
+                "verify"
+              ]
+            },
+            "description": "Langkah kedua login jika TOTP aktif. Memvalidasi `tempToken` dan `code` (6 digit) untuk menghasilkan `accessToken` dan `refreshToken` final."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Token refreshed successfully', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.data).to.have.property('token');",
+                  "    pm.expect(jsonData.data).to.have.property('refreshToken');",
+                  "});",
+                  "",
+                  "if (jsonData.data && jsonData.data.token) {",
+                  "    if (pm.environment) {",
+                  "        pm.environment.set('accessToken', jsonData.data.token);",
+                  "        pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "    }",
+                  "    pm.collectionVariables.set('accessToken', jsonData.data.token);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
+                  "    console.log('Saved refreshed accessToken & refreshToken.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh-token"
+              ]
+            },
+            "description": "Memperbarui token akses kadaluarsa menggunakan refresh token valid."
+          },
+          "response": []
+        },
+        {
+          "name": "7. Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Logout successful', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});",
+                  "",
+                  "if (pm.environment) {",
+                  "    pm.environment.set('accessToken', '');",
+                  "    pm.environment.set('tempToken', '');",
+                  "}",
+                  "pm.collectionVariables.set('accessToken', '');",
+                  "pm.collectionVariables.set('tempToken', '');",
+                  "console.log('Logged out. Cleared token variables.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Logout dan blacklist JWT token aktif di Redis. Catatan: Sesuai aturan bisnis, user WAJIB sudah mengaktifkan TOTP (`isTotpEnabled = true`) sebelum bisa logout."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. Role Management",
+      "description": "Endpoint manajemen Role (membutuhkan otorisasi ROLE_WRITE / ROLE_READ / ROLE_DELETE - default akun ADMIN).",
+      "item": [
+        {
+          "name": "1. Create Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 201', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Role created successfully', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"MODERATOR\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/role",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "role"
+              ]
+            },
+            "description": "Membuat role baru (Otorisasi: ROLE_WRITE)."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get All Roles (Paginated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Roles retrieved successfully', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.data.content).to.be.an('array');",
+                  "});",
+                  "",
+                  "if (jsonData.data && jsonData.data.content && jsonData.data.content.length > 0) {",
+                  "    var firstId = jsonData.data.content[0].id;",
+                  "    if (pm.environment) pm.environment.set('roleId', firstId);",
+                  "    pm.collectionVariables.set('roleId', firstId);",
+                  "    console.log('Saved first roleId: ' + firstId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/role?search=&page=0&size=10&sort=id,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "role"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Filter pencarian nama role"
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "description": "Halaman (0-indexed)"
+                },
+                {
+                  "key": "size",
+                  "value": "10",
+                  "description": "Jumlah data per halaman"
+                },
+                {
+                  "key": "sort",
+                  "value": "id,desc",
+                  "description": "Urutan sorting"
+                }
+              ]
+            },
+            "description": "Mendapatkan daftar role terpaginasi (Otorisasi: ROLE_READ). ID role pertama otomatis disimpan ke variabel `roleId`."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get Role by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Role retrieved correctly', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.data.id).to.eql(Number(pm.variables.get('roleId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/role/{{roleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "role",
+                "{{roleId}}"
+              ]
+            },
+            "description": "Mengambil detail role berdasarkan ID (Otorisasi: ROLE_READ)."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Update Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Role updated successfully', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"MODERATOR_UPDATED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/role/{{roleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "role",
+                "{{roleId}}"
+              ]
+            },
+            "description": "Memperbarui nama role berdasarkan ID (Otorisasi: ROLE_WRITE)."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Delete Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Role deleted successfully', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/role/{{roleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "role",
+                "{{roleId}}"
+              ]
+            },
+            "description": "Menghapus role berdasarkan ID (Otorisasi: ROLE_DELETE)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03. User Management",
+      "description": "Endpoint manajemen User (CRUD). Memerlukan otentikasi Bearer Token.",
+      "item": [
+        {
+          "name": "1. Create User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 201', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('User created successfully', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"staff_member\",\n  \"name\": \"Staff Member\",\n  \"email\": \"staff@example.com\",\n  \"password\": \"Password123!\",\n  \"roleId\": 2,\n  \"isTotpEnabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user"
+              ]
+            },
+            "description": "Membuat user baru secara administratif lengkap dengan penugasan `roleId`."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get All Users (Paginated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('Users retrieved successfully', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.data.content).to.be.an('array');",
+                  "});",
+                  "",
+                  "if (jsonData.data && jsonData.data.content && jsonData.data.content.length > 0) {",
+                  "    var firstId = jsonData.data.content[0].id;",
+                  "    if (pm.environment) pm.environment.set('userId', firstId);",
+                  "    pm.collectionVariables.set('userId', firstId);",
+                  "    console.log('Saved first userId: ' + firstId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/user?search=&page=0&size=10&sort=id,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Filter username/nama/email"
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "description": "Halaman (0-indexed)"
+                },
+                {
+                  "key": "size",
+                  "value": "10",
+                  "description": "Ukuran data per halaman"
+                },
+                {
+                  "key": "sort",
+                  "value": "id,desc",
+                  "description": "Field sorting"
+                }
+              ]
+            },
+            "description": "Mendapatkan daftar seluruh user secara terpaginasi. ID user pertama otomatis disimpan ke variabel `userId`."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get User by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('User retrieved correctly', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.data.id).to.eql(Number(pm.variables.get('userId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/user/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "{{userId}}"
+              ]
+            },
+            "description": "Mengambil rincian informasi user berdasarkan ID."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Update User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('User updated successfully', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Staff Member Updated\",\n  \"email\": \"staff_updated@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/user/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "{{userId}}"
+              ]
+            },
+            "description": "Memperbarui data profil user (name, email, password, roleId, isTotpEnabled)."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Delete User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "pm.test('User deleted successfully', function () {",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/user/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "{{userId}}"
+              ]
+            },
+            "description": "Menghapus user berdasarkan ID."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

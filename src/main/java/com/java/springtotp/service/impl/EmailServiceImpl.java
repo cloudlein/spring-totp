@@ -53,7 +53,7 @@ public class EmailServiceImpl implements EmailService {
 
             ResendEmailRequest request = ResendEmailRequest
                     .builder()
-                    .from("App <noreply@dev.com>")
+                    .from(resendProperties.fromEmail())
                     .to(List.of(to))
                     .subject("Two-Factor Authentication Has Been Enabled on Your Account")
                     .htmlContent(html)
@@ -62,7 +62,7 @@ public class EmailServiceImpl implements EmailService {
             sendEmail(request);
 
         }catch (Exception e) {
-            log.error("Error enabled TOTP 2FA");
+            log.error("Error sending TOTP enabled alert email to {}: {}", to, e.getMessage(), e);
         }
     }
 }

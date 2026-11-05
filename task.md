@@ -35,14 +35,14 @@ Technical task backlog and engineering specification for implementing Time-based
 - **Phase 4: Controller Endpoints & Security Configuration**: 100% Completed
   - [x] Task 4.1: Expose REST Endpoints in `AuthController` (`GET /totp/setup`, `POST /totp/enable`, `POST /totp/verify`).
   - [x] Task 4.2: Update Spring Security Filter Chain in `SecurityConfig` (`permitAll()` on `/api/v1/auth/totp/verify`, authenticated for others).
-- **Phase 5: Verification & Quality Assurance**: In Progress
-  - Verification with automated compilation & unit testing ready.
-- **Phase 6: Email Notification Integration via Resend (Event-Driven REST API)**: In Progress
+- **Phase 5: Verification & Quality Assurance**: 100% Completed
+  - [x] Verification with automated compilation & unit testing (TotpServiceTest, AuthControllerTest with 7 scenarios).
+- **Phase 6: Email Notification Integration via Resend (Event-Driven REST API)**: 100% Completed
   - [x] Task 6.1: Environment configuration & Async/RestClient Setup.
   - [x] Task 6.2: Resend API DTOs, Thymeleaf template, and `EmailService` implementation.
   - [x] Task 6.3: Domain Event & `@Async` Event Listener.
   - [x] Task 6.4: Event Publishing integration in `AuthServiceImpl`.
-  - [ ] Task 6.5: Unit & integration testing.
+  - [x] Task 6.5: Unit & integration testing.
 
 ---
 
@@ -225,7 +225,7 @@ class AuthControllerTest {
   - **Key Assertions**: HTTP `200 OK`, `data.token` is present and non-empty, and `data.mfaRequired` evaluates to `false` (or absent/null).
   - **Engineering Clue**: Persist the issued JWT access token from the login response to authenticate subsequent protected endpoints as a Bearer token.
 
-- [ ] **Test Case 2: Attempt Immediate Logout (Expected Failure)**
+- [x] **Test Case 2: Attempt Immediate Logout (Expected Failure)**
   - **Target File**: [AuthControllerTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerTest.java)
   - **Execution Flow**:
     - Dispatch `POST /api/v1/auth/logout` supplying header `Authorization: Bearer <token_from_case_1>`.
@@ -234,7 +234,7 @@ class AuthControllerTest {
     - Error response body must explicitly indicate that TOTP Two-Factor Authentication activation is mandatory prior to session termination.
   - **Engineering Clue**: Append `.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)` to the MockMvc request builder.
 
-- [ ] **Test Case 3: Provision TOTP Secret & QR Code**
+- [x] **Test Case 3: Provision TOTP Secret & QR Code**
   - **Target File**: [AuthControllerTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerTest.java)
   - **Execution Flow**:
     - Dispatch `GET /api/v1/auth/totp/setup` with an active Bearer token.
@@ -243,7 +243,7 @@ class AuthControllerTest {
     - Response payload contains `secretKey` (non-blank Base32 format) and `qrCodeDataUrl` starting with standard prefix `data:image/png;base64,`.
   - **Engineering Clue**: Extract the generated `secretKey` from the JSON response to compute valid OTP verification codes in Test Case 4.
 
-- [ ] **Test Case 4: Enable TOTP with Invalid vs Valid Code**
+- [x] **Test Case 4: Enable TOTP with Invalid vs Valid Code**
   - **Target File**: [AuthControllerTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerTest.java)
   - **Execution Flow**:
     - **Negative Path**: Dispatch `POST /api/v1/auth/totp/enable` with body `{ "code": "000000" }` -> Assert HTTP `400 Bad Request`.
@@ -251,7 +251,7 @@ class AuthControllerTest {
   - **Key Assertions**: Valid code request returns HTTP `200 OK`.
   - **Engineering Clue**: Autowire or instantiate `TotpService` within your test class to derive the synchronized one-time passcode for `Instant.now()`.
 
-- [ ] **Test Case 5: Retry Logout (Expected Success)**
+- [x] **Test Case 5: Retry Logout (Expected Success)**
   - **Target File**: [AuthControllerTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerTest.java)
   - **Execution Flow**:
     - Following successful TOTP activation in Case 4, reissue `POST /api/v1/auth/logout` using the active Bearer token.
@@ -259,7 +259,7 @@ class AuthControllerTest {
     - HTTP `200 OK`.
     - The bearer token is invalidated and successfully blacklisted in Redis.
 
-- [ ] **Test Case 6: Login Flow with MFA Enforced**
+- [x] **Test Case 6: Login Flow with MFA Enforced**
   - **Target File**: [AuthControllerTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerTest.java)
   - **Execution Flow**:
     - **Step 1**: Dispatch `POST /api/v1/auth/login` for the MFA-enabled account.
@@ -268,7 +268,7 @@ class AuthControllerTest {
       - Assertions: HTTP `200 OK`, returning fully authenticated `token` (access token) and `refreshToken`.
   - **Engineering Clue**: Endpoint `/api/v1/auth/totp/verify` is publicly accessible (`permitAll()` in `SecurityConfig`), requiring no Bearer authentication header.
 
-- [ ] **Test Case 7: Asynchronous Security Email Dispatch on TOTP Activation**
+- [x] **Test Case 7: Asynchronous Security Email Dispatch on TOTP Activation**
   - **Target File**: [AuthControllerTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerTest.java)
   - **Execution Flow**:
     - Mock the email delivery component via `@MockitoBean` (or `@MockBean`).
@@ -345,8 +345,8 @@ class AuthControllerTest {
        - Immediately dispatch domain event:
          `eventPublisher.publishEvent(new TotpEnabledEvent(user.getEmail(), user.getUsername(), Instant.now()))`.
 
-- [ ] **Task 6.5: Verification & Quality Assurance (Service-Layer Unit Testing Specification)**
-  - **Status**: Not Started
+- [x] **Task 6.5: Verification & Quality Assurance (Service-Layer Unit Testing Specification)**
+  - **Status**: Completed
   - **Target Files**:
     - [EmailServiceImplTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/EmailServiceImplTest.java)
     - [AuthServiceImplTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/AuthServiceImplTest.java)
