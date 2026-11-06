@@ -1,0 +1,25 @@
+package com.java.springtotp.dto.userDevice;
+
+import com.java.springtotp.util.Fingerprints;
+import lombok.Builder;
+
+import java.util.Objects;
+
+@Builder
+public record DeviceMetadata(
+        String ipAddress,
+        String browser,
+        String operatingSystem,
+        String location,
+        String deviceDetails,
+        String fingerprint
+){
+    public DeviceMetadata {
+        Objects.requireNonNull(browser, "browser");
+        Objects.requireNonNull(operatingSystem, "operatingSystem");
+
+        deviceDetails = browser + " on " + operatingSystem;
+        fingerprint   = Fingerprints.sha256(deviceDetails);
+    }
+
+}
