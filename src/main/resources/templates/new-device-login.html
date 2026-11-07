@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security alert: New sign-in detected</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f5f7;">
+
+<div style="display:none; max-height:0; overflow:hidden; opacity:0;">
+    A new sign-in was detected on your account. Review the details to ensure it was you.
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background-color:#f4f5f7; padding:24px 0;">
+    <tr>
+        <td align="center">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="max-width:600px; background-color:#ffffff; border-radius:8px;
+                          font-family:Arial, Helvetica, sans-serif; color:#1f2933; line-height:1.6;">
+
+                <!-- Header -->
+                <tr>
+                    <td style="padding:32px 32px 8px 32px;">
+                        <h1 style="margin:0; font-size:22px; color:#111827;">
+                            Security alert: New sign-in
+                        </h1>
+                    </td>
+                </tr>
+
+                <!-- Greeting & Body -->
+                <tr>
+                    <td style="padding:8px 32px; font-size:15px;">
+                        <p style="margin:0 0 16px 0;">
+                            Hi <strong th:text="${username}">username</strong>,
+                        </p>
+                        <p style="margin:0 0 16px 0;">
+                            Your account was just accessed from a new device, browser, or location.
+                            Review the details below to confirm this activity was authorized by you.
+                        </p>
+
+                        <!-- Activity Details Table -->
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+                               style="background-color:#f9fafb; border:1px solid #e5e7eb;
+                                      border-radius:6px; width:100%; font-size:14px;">
+                            <tr>
+                                <td style="padding:12px 16px; color:#6b7280; width:30%; border-bottom:1px solid #e5e7eb;">Device / Browser</td>
+                                <td style="padding:12px 16px; font-weight:500; border-bottom:1px solid #e5e7eb;" th:text="${deviceDetails}">Chrome on Windows 11</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:12px 16px; color:#6b7280; border-bottom:1px solid #e5e7eb;">Approx. Location</td>
+                                <td style="padding:12px 16px; border-bottom:1px solid #e5e7eb;">
+                                    <span th:text="${location}">Jakarta, Indonesia</span>
+                                    <span style="display:block; font-size:12px; color:#9ca3af;">(Estimated based on IP address)</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding:12px 16px; color:#6b7280; border-bottom:1px solid #e5e7eb;">IP Address</td>
+                                <td style="padding:12px 16px; font-family:Consolas, Monaco, monospace; font-size:13px; border-bottom:1px solid #e5e7eb;" th:text="${ipAddress}">192.0.2.1</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:12px 16px; color:#6b7280;">Time</td>
+                                <td style="padding:12px 16px;" th:text="${loginTime}">07 Nov 2026, 13:38 UTC</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- Security Action Callout (Don't recognize this?) -->
+                <tr>
+                    <td style="padding:16px 32px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                               style="background-color:#fef3f2; border-left:4px solid #d92d20; border-radius:4px;">
+                            <tr>
+                                <td style="padding:16px;">
+                                    <strong style="color:#7a271a; font-size:14px; display:block; margin-bottom:4px;">
+                                        Didn't recognize this sign-in?
+                                    </strong>
+                                    <p style="margin:0 0 12px 0; font-size:13px; color:#7a271a; line-height:1.5;">
+                                        Your credentials may be compromised. Take immediate action to terminate active sessions and update your password.
+                                    </p>
+                                    <a th:href="${securityActionUrl != null ? securityActionUrl : supportEmail}"
+                                       style="display:inline-block; background-color:#d92d20; color:#ffffff;
+                                              padding:10px 18px; border-radius:6px; font-size:13px;
+                                              font-weight:600; text-decoration:none;">
+                                        Secure Your Account
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- Reassurance Notice -->
+                <tr>
+                    <td style="padding:8px 32px 24px 32px; font-size:14px; color:#4b5563;">
+                        <p style="margin:0;">
+                            If this was you, no action is needed. This device has been recorded as a known device for future sign-ins.
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                    <td style="padding:16px 32px 32px 32px; border-top:1px solid #e5e7eb;
+                               font-size:12px; color:#6b7280;">
+                        You are receiving this security notification because a new device accessed your account.
+                        This is an automated message, please do not reply.
+                        Need help? Contact <span th:text="${supportEmail != null ? supportEmail : 'support@dev.com'}">support@dev.com</span>.
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
+

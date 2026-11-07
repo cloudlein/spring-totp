@@ -42,6 +42,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserDetailsService userDetailsService;
     private final TotpService totpService;
     private final ApplicationEventPublisher eventPublisher;
+    private final DeviceVerificationService deviceVerificationService;
 
     @Value("${APPLICATION_NAME}")
     private String applicationName;
@@ -61,7 +62,7 @@ public class AuthServiceImpl implements AuthService {
         if (user.getIsTotpEnabled() == null || !user.getIsTotpEnabled()) {
             String accessToken = jwtService.generateToken(userDetails);
             String refreshToken = jwtService.generateTokenRefresh(userDetails);
-
+            deviceVerificationService.verifyDeviceAndNotify(user, );
             return AuthResponse.builder()
                     .message("login successful")
                     .token(accessToken)

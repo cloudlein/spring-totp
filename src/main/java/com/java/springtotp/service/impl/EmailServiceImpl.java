@@ -2,8 +2,13 @@ package com.java.springtotp.service.impl;
 
 import com.java.springtotp.dto.email.ResendEmailRequest;
 import com.java.springtotp.dto.email.ResendEmailResponse;
+import com.java.springtotp.dto.userDevice.DeviceMetadata;
+import com.java.springtotp.exception.ResourceNotFoundException;
+import com.java.springtotp.model.User;
 import com.java.springtotp.properties.ResendProperties;
+import com.java.springtotp.repository.UserRepository;
 import com.java.springtotp.service.EmailService;
+import com.java.springtotp.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -26,6 +31,7 @@ public class EmailServiceImpl implements EmailService {
     private final ResendProperties resendProperties;
     private final RestClient restClient;
     private final TemplateEngine templateEngine;
+    private final UserRepository userRepository;
 
     @Override
     public void sendEmail(ResendEmailRequest request) {
@@ -63,6 +69,23 @@ public class EmailServiceImpl implements EmailService {
 
         }catch (Exception e) {
             log.error("Error sending TOTP enabled alert email to {}: {}", to, e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void sendNEwDeviceLoginAlert(String username , String email, DeviceMetadata deviceMetadata) {
+        try{
+            Context context = new Context();
+            context.setVariable("username", username);
+            context.setVariable("deviceDetails", deviceMetadata.deviceDetails());
+            context.setVariable("location", deviceMetadata.location());
+            context.setVariable("ipAddress", deviceMetadata.ipAddress());
+            context.setVariable("loginTime", ZonedDateTime.now(ZoneOffset.UTC)
+                    .format(DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm 'UTC'", Locale.ENGLISH)));
+            context.setVariable("securityActionUrl", "https://app.support.dev.com/security/alert?token=...");
+            context.setVariable("supportEmail", "support@dev.com");
+        } catch (Exception e) {
+            log.error("Failed to send new device login alert to {}: {}", email, e.getMessage(), e);
         }
     }
 }

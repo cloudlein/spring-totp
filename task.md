@@ -47,11 +47,11 @@ Technical task backlog and engineering specification for implementing Time-based
   - [x] Task 6.3: Domain Event & `@Async` Event Listener.
   - [x] Task 6.4: Event Publishing integration in `AuthServiceImpl`.
   - [x] Task 6.5: Unit & integration testing.
-- **Phase 7: Risk-Based New Device & Suspicious Location Security Alerts**: In Progress (~25%)
-  - [/] Task 7.1: Entity & Repository for Known Devices (`UserDevice` & `UserDeviceRepository`) - *In Progress (Entity & basic Repo created; query methods & Flyway migration V4 pending)*.
-  - [/] Task 7.2: Device Metadata & GeoIP Extraction Utility (`DeviceDetectionService`) - *In Progress (DTO, interface, utilities, and service implementation drafted; compilation fixes & unit tests pending)*.
+- **Phase 7: Risk-Based New Device & Suspicious Location Security Alerts**: In Progress (~40%)
+  - [x] Task 7.1: Entity & Repository for Known Devices (`UserDevice`, `UserDeviceRepository`, & Flyway migration `V4__create_user_device_table.sql`).
+  - [/] Task 7.2: Device Metadata & GeoIP Extraction Utility (`DeviceDetectionService`) - *In Progress (DTO, interface, utilities, and service implementation created; runtime bug fixes in `DeviceDetectionServiceImpl` & unit tests pending)*.
   - [ ] Task 7.3: Device Verification & Risk-Based Evaluation Logic in `AuthService`.
-  - [ ] Task 7.4: Domain Event & `@Async` Security Notification Listener (`NewDeviceLoginEvent`).
+  - [ ] Task 7.4: Domain Event & `@Async` Security Notification Listener (`NewDeviceLoginEvent` & `NewDeviceSecurityListener.onNewDeviceLogin`).
   - [ ] Task 7.5: Security Notification Template (`new-device-login.html`) & `EmailService` Dispatch.
   - [ ] Task 7.6: Verification & Quality Assurance (Unit & Integration Testing).
 
@@ -426,34 +426,34 @@ class AuthControllerTest {
 
 ---
 
-- [/] **Task 7.1: Create Known Device Model & Repository (`UserDevice`)**
-  - **Status**: In Progress (Partial)
+- [x] **Task 7.1: Create Known Device Model & Repository (`UserDevice`)**
+  - **Status**: Completed
   - **Target Files**:
-    - [UserDevice.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/model/UserDevice.java) *(Created)*
-    - [UserDeviceRepository.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/repository/UserDeviceRepository.java) *(Created - Query methods pending)*
-    - `src/main/resources/db/migration/V4__create_user_device_table.sql` *(Pending)*
+    - [UserDevice.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/model/UserDevice.java) *(Created)*
+    - [UserDeviceRepository.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/repository/UserDeviceRepository.java) *(Created with query methods)*
+    - [V4__create_user_device_table.sql](file:///e:/project/spring-totp/src/main/resources/db/migration/V4__create_user_device_table.sql) *(Created)*
   - **Requirements & Schema Specifications**:
     1. Entity `UserDevice` extends `BaseModel`:
        - [x] Entity implemented with fields `user`, `deviceDetails`, `deviceHash`, `ipAddress`, `location`, `fingerPrint`, `lastLoginAt`.
        - [x] Indexed with `idx_user_device_hash` and `idx_user_device_user_hash`.
     2. Interface `UserDeviceRepository` extends `JpaRepository<UserDevice, Long>`:
        - [x] Interface declared.
-       - [ ] Query method: `Optional<UserDevice> findByUserIdAndDeviceHash(Long userId, String deviceHash)`.
-       - [ ] Query method: `List<UserDevice> findAllByUserId(Long userId)`.
+       - [x] Query method: `Optional<UserDevice> findByUserIdAndDeviceHash(Long userId, String deviceHash)`.
+       - [x] Query method: `List<UserDevice> findAllByUserId(Long userId)`.
     3. Database Schema Migration:
-       - [ ] Flyway script `V4__create_user_device_table.sql` for PostgreSQL table creation and index definitions.
+       - [x] Flyway script `V4__create_user_device_table.sql` for PostgreSQL table creation and index definitions.
 
 ---
 
 - [/] **Task 7.2: Device Metadata & GeoIP Extraction Utility (`DeviceDetectionService`)**
-  - **Status**: In Progress (Drafted - Compilation Fixes & Tests Pending)
+  - **Status**: In Progress (Implementation Created - Runtime Bug Fixes & Tests Pending)
   - **Target Files**:
-    - [DeviceMetadata.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/dto/userDevice/DeviceMetadata.java) *(Created)*
-    - [Fingerprints.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/util/Fingerprints.java) *(Created)*
-    - [GeoIpResolver.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/util/GeoIpResolver.java) *(Created)*
-    - [NoOpGeoIpResolver.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/util/NoOpGeoIpResolver.java) *(Created)*
-    - [DeviceDetectionService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/DeviceDetectionService.java) *(Created)*
-    - [DeviceDetectionServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/DeviceDetectionServiceImpl.java) *(Created - Has compile errors)*
+    - [DeviceMetadata.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/dto/userDevice/DeviceMetadata.java) *(Created)*
+    - [Fingerprints.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/util/Fingerprints.java) *(Created)*
+    - [GeoIpResolver.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/util/GeoIpResolver.java) *(Created)*
+    - [NoOpGeoIpResolver.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/util/NoOpGeoIpResolver.java) *(Created)*
+    - [DeviceDetectionService.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/DeviceDetectionService.java) *(Created)*
+    - [DeviceDetectionServiceImpl.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/impl/DeviceDetectionServiceImpl.java) *(Created)*
   - **Requirements & Method Specifications**:
     1. DTO / Record `DeviceMetadata`:
        - [x] Record created with fields `ipAddress`, `browser`, `operatingSystem`, `location`, `deviceDetails`, `fingerprint`.
@@ -463,11 +463,10 @@ class AuthControllerTest {
        - [x] Default `NoOpGeoIpResolver` fallback component created.
     3. Service Interface & Implementation (`DeviceDetectionService`):
        - [x] Interface created with `DeviceMetadata extractMetaData(HttpServletRequest request)`.
-       - [ ] Fix compilation errors in `DeviceDetectionServiceImpl`:
-         - Fix syntax error: `isvalid(xff)` -> `isValid(xff)`.
-         - Add `@Slf4j` annotation for logger `log.warn(...)`.
-         - Fix boundary bug in `parseBrowser`: `for (int i = 0; i <= patterns.length; i++)` -> `< patterns.length`.
-         - Fix spacing format: `browser + "on " + os` -> `browser + " on " + os`.
+       - [x] Implementation class created with IP resolution, User-Agent extraction, location resolution, and fingerprint hashing.
+       - [ ] Address pending runtime fixes in `DeviceDetectionServiceImpl`:
+         - Boundary bug in `parseBrowser`: `for (int i = 0; i <= patterns.length; i++)` -> `< patterns.length` (prevents `ArrayIndexOutOfBoundsException`).
+         - Spacing format in `deviceDetails`: `browser + "on " + os` -> `browser + " on " + os`.
     4. Unit Testing:
        - [ ] Create `DeviceDetectionServiceTest` to verify client IP extraction, User-Agent parsing, and fallback handling.
 
@@ -490,7 +489,10 @@ class AuthControllerTest {
          - **DO NOT** publish security alert event (Prevents alert fatigue).
        - **Condition B: Unrecognized Device / Location (*New Device Alert*)**:
          - Instantiate and persist a new `UserDevice` entity record.
-         - Publish domain event `NewDeviceLoginEvent` to Spring's event bus via `ApplicationEventPublisher`.
+         - **Event Name**: `NewDeviceLoginEvent` (Domain event record).
+         - **Publishing Action**: `eventPublisher.publishEvent(new NewDeviceLoginEvent(...))`.
+         - **Listener Action**: `NewDeviceSecurityListener.onNewDeviceLogin(NewDeviceLoginEvent event)`.
+         - **Email Dispatch Action**: `emailService.sendNewDeviceLoginAlert(...)` (processes Thymeleaf template `new-device-login.html` & dispatches via Resend API).
     4. Hook `deviceVerificationService.verifyDeviceAndNotify` into authentication flows:
        - `AuthServiceImpl.login`: When TOTP is not enabled (`isTotpEnabled == false`), upon successful credential validation.
        - `AuthServiceImpl.verifyTotpLogin`: When TOTP is enabled, upon successful 6-digit OTP code verification.

@@ -39,7 +39,7 @@ public class DeviceDetectionServiceImpl implements DeviceDetectionService {
         String browser = parseBrowser(userAgent);
         String os = parseOs(userAgent);
         String location = resolveLocation(ip);
-        String deviceDetails = browser + "on " + os;
+        String deviceDetails = browser + " on " + os;
         String fingerprint = computeFingerPrint(deviceDetails);
 
         return new DeviceMetadata(ip, browser, os, location, deviceDetails, fingerprint);
@@ -83,7 +83,7 @@ public class DeviceDetectionServiceImpl implements DeviceDetectionService {
 
         String[] names = {"Edge", "Postman", "Firefox", "Chrome", "Safari"};
 
-        for (int i = 0; i <= patterns.length; i++ ) {
+        for (int i = 0; i < patterns.length; i++ ) {
             Matcher m = patterns[i].matcher(ua);
             if (m.find()) {
                 return names[i] + " " + m.group(1);
