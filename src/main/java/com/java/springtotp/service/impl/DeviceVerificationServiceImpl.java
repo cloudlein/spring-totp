@@ -25,15 +25,23 @@ public class DeviceVerificationServiceImpl implements DeviceVerificationService 
     public void verifyDeviceAndNotify(User user, HttpServletRequest request) {
         DeviceMetadata metadata = deviceDetectionService.extractMetaData(request);
         Optional<UserDevice> existingDevice = userDeviceRepository.findByUserIdAndDeviceHash(user.getId(), metadata.fingerprint());
-
-        if (existingDevice.isPresent()) {
-            UserDevice device = existingDevice.get();
-            device.setLastLoginAt(Instant.now());
-            device.setIpAddress(metadata.ipAddress());
-            device.setLocation(metadata.location());
-            userDeviceRepository.save(device);
-        }else {
-
-        }
+        existingDevice.ifPresentOrElse(
+                device -> {
+                    device.setLastLoginAt(Instant.now());
+                    device.setIpAddress(metadata.ipAddress());
+                    device.setLocation(metadata.location());
+                    userDeviceRepository.save(device);
+                },
+                () -> {
+//                    UserDevice newDevice = UserDevice.builder()
+//                            .user(user)
+//                            .deviceDetails(metadata.deviceDetails())
+//                            .deviceHash(metadata.fingerprint())
+//                            .ipAddress(metadata.ipAddress())
+//                            .location(metadata.location())
+//                            .
+//                            .build();
+                }
+        );
     }
 }

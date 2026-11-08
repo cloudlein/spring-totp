@@ -10,13 +10,10 @@ import lombok.experimental.SuperBuilder;
 import java.time.Instant;
 
 @Entity
-@Table(
-        name = "user_device",
-        indexes = {
-                @Index(name = "idx_user_device_hash", columnList = "deviceHash"),
-                @Index(name = "idx_user_device_user_hash", columnList = "user_id, deviceHash")
-        }
-)
+@Table(name = "user_device",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_user_device_user_hash",
+                columnNames = {"user_id", "device_hash"}))
 @Getter
 @Setter
 @SuperBuilder

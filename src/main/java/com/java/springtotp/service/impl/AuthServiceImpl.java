@@ -13,6 +13,7 @@ import com.java.springtotp.repository.RoleRepository;
 import com.java.springtotp.repository.UserRepository;
 import com.java.springtotp.service.*;
 import io.micrometer.common.util.StringUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -49,7 +50,7 @@ public class AuthServiceImpl implements AuthService {
 
 
     @Override
-    public AuthResponse login(LoginRequest loginRequest) {
+    public AuthResponse login(LoginRequest loginRequest, HttpServletRequest request) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginRequest.getUsername(), loginRequest.getPassword()
@@ -62,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
         if (user.getIsTotpEnabled() == null || !user.getIsTotpEnabled()) {
             String accessToken = jwtService.generateToken(userDetails);
             String refreshToken = jwtService.generateTokenRefresh(userDetails);
-            deviceVerificationService.verifyDeviceAndNotify(user, );
+            deviceVerificationService.verifyDeviceAndNotify(user, request);
             return AuthResponse.builder()
                     .message("login successful")
                     .token(accessToken)

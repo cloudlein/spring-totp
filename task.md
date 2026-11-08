@@ -429,13 +429,17 @@ class AuthControllerTest {
 - [x] **Task 7.1: Create Known Device Model & Repository (`UserDevice`)**
   - **Status**: Completed
   - **Target Files**:
-    - [UserDevice.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/model/UserDevice.java) *(Created)*
+    - [UserDevice.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/model/UserDevice.java) *(Created & Refined with unique constraint `uk_user_device_user_hash`)*
     - [UserDeviceRepository.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/repository/UserDeviceRepository.java) *(Created with query methods)*
     - [V4__create_user_device_table.sql](file:///e:/project/spring-totp/src/main/resources/db/migration/V4__create_user_device_table.sql) *(Created)*
   - **Requirements & Schema Specifications**:
     1. Entity `UserDevice` extends `BaseModel`:
        - [x] Entity implemented with fields `user`, `deviceDetails`, `deviceHash`, `ipAddress`, `location`, `fingerPrint`, `lastLoginAt`.
-       - [x] Indexed with `idx_user_device_hash` and `idx_user_device_user_hash`.
+       - [x] Unique constraint configured on `(user_id, device_hash)` (`uk_user_device_user_hash`).
+       - [ ] **Field Semantic Refinements & Storage**:
+         - `deviceHash`: Primary deterministic lookup key (SHA-256 of persistent client cookie token `__Host-device_id` or primary device identifier).
+         - `fingerPrint`: Secondary client heuristic fingerprint (composite browser, OS, screen/headers) for anomaly detection and audit trail without duplicating `deviceHash`.
+         - `ipAddress`: Store masked IP (e.g. `192.168.1.xxx` / IPv6 `2001:db8:85a3::xxxx`) via `IpUtils.maskIp(...)` for GDPR/privacy compliance.
     2. Interface `UserDeviceRepository` extends `JpaRepository<UserDevice, Long>`:
        - [x] Interface declared.
        - [x] Query method: `Optional<UserDevice> findByUserIdAndDeviceHash(Long userId, String deviceHash)`.
@@ -445,106 +449,121 @@ class AuthControllerTest {
 
 ---
 
-- [/] **Task 7.2: Device Metadata & GeoIP Extraction Utility (`DeviceDetectionService`)**
-  - **Status**: In Progress (Implementation Created - Runtime Bug Fixes & Tests Pending)
+- [x] **Task 7.2: Device Metadata & GeoIP Extraction Utility (`DeviceDetectionService`)**
+  - **Status**: Completed
   - **Target Files**:
     - [DeviceMetadata.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/dto/userDevice/DeviceMetadata.java) *(Created)*
     - [Fingerprints.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/util/Fingerprints.java) *(Created)*
+    - [IpUtils.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/util/IpUtils.java) *(Created with IPv4/IPv6 masking support)*
     - [GeoIpResolver.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/util/GeoIpResolver.java) *(Created)*
     - [NoOpGeoIpResolver.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/util/NoOpGeoIpResolver.java) *(Created)*
     - [DeviceDetectionService.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/DeviceDetectionService.java) *(Created)*
-    - [DeviceDetectionServiceImpl.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/impl/DeviceDetectionServiceImpl.java) *(Created)*
+    - [DeviceDetectionServiceImpl.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/impl/DeviceDetectionServiceImpl.java) *(Completed)*
   - **Requirements & Method Specifications**:
-    1. DTO / Record `DeviceMetadata`:
+    1. Utilities (`IpUtils`, `Fingerprints`, `GeoIpResolver`, `NoOpGeoIpResolver`):
+       - [x] Implement `IpUtils.maskIp(String rawIp)`:
+         - IPv4 masking: `192.168.1.123` -> `192.168.1.xxx`.
+         - IPv6 masking: `2001:db8:85a3::8a2e:370:7334` -> `parts[0]:parts[1]:parts[2]::xxxx`.
+         - Null/blank/malformed IP safe fallback to `"unknown"`.
+       - [x] SHA-256 hashing utility `Fingerprints.sha256(...)`.
+       - [x] Default `NoOpGeoIpResolver` fallback component.
+    2. DTO / Record `DeviceMetadata`:
        - [x] Record created with fields `ipAddress`, `browser`, `operatingSystem`, `location`, `deviceDetails`, `fingerprint`.
-       - [x] Canonical constructor normalizes details and computes SHA-256 fingerprint via `Fingerprints.sha256`.
-    2. Utilities (`Fingerprints`, `GeoIpResolver`, `NoOpGeoIpResolver`):
-       - [x] SHA-256 hashing utility created.
-       - [x] Default `NoOpGeoIpResolver` fallback component created.
+       - [ ] Refine compact constructor: decouple `deviceDetails` (human-readable label) from `fingerprint` (composite browser/OS/headers) to eliminate hash collisions.
+       - [ ] Ensure `ipAddress` stored in `DeviceMetadata` or exposed to notifications is masked via `IpUtils.maskIp(rawIp)`.
     3. Service Interface & Implementation (`DeviceDetectionService`):
-       - [x] Interface created with `DeviceMetadata extractMetaData(HttpServletRequest request)`.
-       - [x] Implementation class created with IP resolution, User-Agent extraction, location resolution, and fingerprint hashing.
-       - [ ] Address pending runtime fixes in `DeviceDetectionServiceImpl`:
-         - Boundary bug in `parseBrowser`: `for (int i = 0; i <= patterns.length; i++)` -> `< patterns.length` (prevents `ArrayIndexOutOfBoundsException`).
-         - Spacing format in `deviceDetails`: `browser + "on " + os` -> `browser + " on " + os`.
+       - [x] Interface declared with `DeviceMetadata extractMetaData(HttpServletRequest request)`.
+       - [x] Implementation handles client IP resolution (`X-Forwarded-For`), User-Agent parsing, and GeoIP lookup.
     4. Unit Testing:
-       - [ ] Create `DeviceDetectionServiceTest` to verify client IP extraction, User-Agent parsing, and fallback handling.
+       - [ ] Create `DeviceDetectionServiceTest` and `IpUtilsTest` verifying IP extraction, IPv4/IPv6 masking, and User-Agent parsing.
 
 ---
 
-- [ ] **Task 7.3: Implement Device Verification & Risk-Based Evaluation Logic in `AuthService`**
-  - **Status**: Pending
+- [/] **Task 7.3: Implement Device Verification & Risk-Based Evaluation Logic in `AuthService`**
+  - **Status**: In Progress
   - **Target Files**:
-    - [DeviceVerificationService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/DeviceVerificationService.java)
-    - [DeviceVerificationServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/DeviceVerificationServiceImpl.java)
-    - [AuthServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/AuthServiceImpl.java)
+    - [DeviceVerificationService.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/DeviceVerificationService.java) *(Created)*
+    - [DeviceVerificationServiceImpl.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/impl/DeviceVerificationServiceImpl.java) *(In Progress - `else` block needs new device persistence & event publishing)*
+    - [AuthController.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/controller/AuthController.java) *(Updated - Injected `HttpServletRequest` into `/login`)*
+    - [AuthService.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/AuthService.java) *(Updated signature: `login(LoginRequest, HttpServletRequest)`)*
+    - [AuthServiceImpl.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/impl/AuthServiceImpl.java) *(Updated - Hooked `verifyDeviceAndNotify` into `login`)*
+  - **Architectural Design (Device Recognition & Privacy Compliance)**:
+    - **Device Recognition Strategy**:
+      - `deviceHash`: Primary deterministic identifier. SHA-256 hash of device cookie token (`__Host-device_id` or primary device identifier).
+      - `fingerPrint`: Secondary client heuristic fingerprint (composite browser, OS, screen/headers) for anomaly detection and audit trail without duplicating `deviceHash`.
+      - `deviceDetails`: Human-readable label (e.g. `"Chrome on Windows"`) for security cards and email templates.
+    - **IP Masking & Privacy (GDPR / UU PDP Compliance)**:
+      - Persist `ipAddress` in `UserDevice` using masked format via `IpUtils.maskIp(metadata.ipAddress())`.
+      - Raw client IP is kept strictly in-memory during GeoIP lookup.
   - **Execution Flow & Risk Evaluation**:
     1. Define dedicated service `DeviceVerificationService` declaring:
        `void verifyDeviceAndNotify(User user, HttpServletRequest request)`
-    2. Extract request metadata via `deviceDetectionService.extractMetadata(request)`.
-    3. Query database via `userDeviceRepository.findByUserIdAndDeviceHash(user.getId(), metadata.deviceHash())`:
+    2. Extract request metadata via `deviceDetectionService.extractMetaData(request)`.
+    3. Query database via `userDeviceRepository.findByUserIdAndDeviceHash(user.getId(), targetDeviceHash)`:
        - **Condition A: Recognized Device (*Known Device*)**:
-         - Update fields `lastLoginAt = Instant.now()`, `ipAddress = metadata.ipAddress()`, and `location = metadata.location()`.
-         - Persist updates via `userDeviceRepository.save(device)`.
-         - **DO NOT** publish security alert event (Prevents alert fatigue).
+         - [x] Update fields `lastLoginAt = Instant.now()`, `ipAddress = IpUtils.maskIp(metadata.ipAddress())`, and `location = metadata.location()`.
+         - [x] Persist updates via `userDeviceRepository.save(device)`.
+         - [x] **DO NOT** publish security alert event (Prevents alert fatigue).
        - **Condition B: Unrecognized Device / Location (*New Device Alert*)**:
-         - Instantiate and persist a new `UserDevice` entity record.
-         - **Event Name**: `NewDeviceLoginEvent` (Domain event record).
-         - **Publishing Action**: `eventPublisher.publishEvent(new NewDeviceLoginEvent(...))`.
+         - [ ] Complete `else` branch in `DeviceVerificationServiceImpl.java`:
+           - Instantiate `UserDevice` with `user`, `deviceHash`, `fingerPrint`, `deviceDetails`, `ipAddress` (masked via `IpUtils.maskIp`), `location`, `lastLoginAt`.
+           - Persist new record via `userDeviceRepository.save(newDevice)`.
+         - **Event Publishing**:
+           - Publish `NewDeviceLoginEvent(user.getUsername(), user.getEmail(), metadata)` (with masked IP).
          - **Listener Action**: `NewDeviceSecurityListener.onNewDeviceLogin(NewDeviceLoginEvent event)`.
-         - **Email Dispatch Action**: `emailService.sendNewDeviceLoginAlert(...)` (processes Thymeleaf template `new-device-login.html` & dispatches via Resend API).
+         - **Email Dispatch Action**: `emailService.sendNEwDeviceLoginAlert(...)` (displays masked IP in alert card).
     4. Hook `deviceVerificationService.verifyDeviceAndNotify` into authentication flows:
-       - `AuthServiceImpl.login`: When TOTP is not enabled (`isTotpEnabled == false`), upon successful credential validation.
-       - `AuthServiceImpl.verifyTotpLogin`: When TOTP is enabled, upon successful 6-digit OTP code verification.
+       - [x] `AuthServiceImpl.login`: Hooked for non-TOTP login flow (`isTotpEnabled == false`).
+       - [ ] `AuthServiceImpl.verifyTotpLogin`: Hook into TOTP verification upon valid 6-digit OTP code verification (pass `HttpServletRequest` via controller/service parameter or `RequestContextHolder`).
+    5. Test Suite Fixes:
+       - [ ] Fix `AuthServiceImplTest`: Update unit test calls from `authService.login(request)` to `authService.login(request, httpServletRequest)`.
 
 ---
 
-- [ ] **Task 7.4: Implement Domain Event & Asynchronous Security Notification Listener**
-  - **Status**: Pending
+- [x] **Task 7.4: Implement Domain Event & Asynchronous Security Notification Listener**
+  - **Status**: Completed
   - **Target Files**:
-    - [NewDeviceLoginEvent.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/event/NewDeviceLoginEvent.java)
-    - [NewDeviceSecurityListener.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/event/NewDeviceSecurityListener.java)
+    - [NewDeviceLoginEvent.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/event/NewDeviceLoginEvent.java) *(Created)*
+    - [NewDeviceSecurityListener.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/event/NewDeviceSecurityListener.java) *(Created)*
   - **Requirements & Specifications**:
     1. Record `NewDeviceLoginEvent`:
-       - `String email`
-       - `String username`
-       - `String deviceDetails` (e.g., `"Chrome 122 on Windows 11"`)
-       - `String ipAddress` (e.g., `"103.28.12.5"`)
-       - `String location` (e.g., `"Jakarta, Indonesia"`)
-       - `Instant loginTimestamp`
-       - `String securityActionUrl` (Emergency link to revoke sessions / initiate password reset)
+       - [x] Record created with fields `username`, `email`, `deviceMetadata`.
+       - [ ] Ensure `deviceMetadata.ipAddress()` carries masked IP format for safe template rendering.
     2. Component `NewDeviceSecurityListener`:
-       - Method: `onNewDeviceLogin(NewDeviceLoginEvent event)`
-       - Annotate with `@Async("emailExecutor")` for non-blocking background thread pool execution.
-       - Annotate with `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)` so notifications only trigger upon confirmed database persistence.
-       - Contain all exceptions in a `try-catch` block: log failures cleanly without bubbling exceptions or impacting client transactions.
+       - [x] Method: `onNewDeviceLogin(NewDeviceLoginEvent event)`.
+       - [x] Annotate with `@Async` for non-blocking background thread pool execution.
+       - [x] Annotate with `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`.
+       - [x] Contain all exceptions in a `try-catch` block: log failures cleanly without bubbling exceptions.
 
 ---
 
-- [ ] **Task 7.5: Security Notification Template & `EmailService` Integration**
-  - **Status**: Pending
+- [/] **Task 7.5: Security Notification Template & `EmailService` Integration**
+  - **Status**: In Progress
   - **Target Files**:
-    - `src/main/resources/templates/new-device-login.html`
-    - [EmailService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/EmailService.java)
-    - [EmailServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/EmailServiceImpl.java)
+    - [new-device-login.html](file:///e:/project/spring-totp/src/main/resources/templates/new-device-login.html) *(Completed)*
+    - [EmailService.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/EmailService.java) *(Completed)*
+    - [EmailServiceImpl.java](file:///e:/project/spring-totp/src/main/java/com/java/springtotp/service/impl/EmailServiceImpl.java) *(In Progress - Template rendering completed, needs Resend dispatch call)*
   - **Requirements & Specifications**:
     1. Extend interface `EmailService`:
-       - Declare: `void sendNewDeviceLoginAlert(NewDeviceLoginEvent event)`
+       - [x] Declare: `void sendNEwDeviceLoginAlert(String username, String email, DeviceMetadata deviceMetadata)`.
     2. Implementation in `EmailServiceImpl`:
-       - Process Thymeleaf template `new-device-login.html` with context attributes:
+       - [x] Process Thymeleaf template `new-device-login.html` with context attributes:
          - `username`: User display name.
          - `deviceDetails`: Parsed browser and OS.
-         - `ipAddress`: Client IP address.
+         - `ipAddress`: Client IP address (**Masked format**, e.g., `192.168.1.xxx` for privacy compliance).
          - `location`: Resolved geographic location.
-         - `loginTime`: Human-friendly formatted timestamp (e.g., `"06 Nov 2026 10:35 WIB (UTC+7)"`).
+         - `loginTime`: Human-friendly formatted timestamp.
          - `securityActionUrl`: Emergency action link.
-       - Dispatch outbound request via `sendEmail(...)` to the Resend API endpoint.
+         - `supportEmail`: Support contact email.
+       - [ ] Build `ResendEmailRequest` and dispatch via `sendEmail(request)` inside `sendNEwDeviceLoginAlert`.
     3. Template Design `new-device-login.html`:
-       - Professional, clean, responsive security card layout.
-       - Header: **"Security Alert: New Sign-in Detected"**.
-       - Details grid: Time, Device & Browser, IP Address, Approximate Location (annotated with *"Estimated based on IP address"*).
-       - **Prominent Emergency Action Button (CTA)**: High-visibility button: *"Not You? Secure Your Account Immediately"*.
-       - Reassurance note: *"If this was you, you can safely disregard this email."*
+       - [x] Professional, clean, responsive security card layout.
+       - [x] Header: **"Security alert: New sign-in"**.
+       - [x] Details grid: Time, Device & Browser, IP Address (Masked), Approximate Location (annotated with *"Estimated based on IP address"*).
+       - [x] Prominent Emergency Action Button (CTA): *"Secure Your Account"*.
+       - [x] Reassurance note: *"If this was you, no action is needed."*
+    4. Test Suite Fixes:
+       - [ ] Fix `EmailServiceImplTest`: Update constructor instantiation to supply required `UserRepository` mock bean.
 
 ---
 
@@ -555,14 +574,15 @@ class AuthControllerTest {
     - [DeviceVerificationServiceTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/DeviceVerificationServiceTest.java)
     - [AuthControllerNewDeviceTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerNewDeviceTest.java)
   - **Test Suite Scenarios**:
-    1. **Unit Test: User-Agent Parsing & Client IP Extraction (`DeviceDetectionServiceTest`)**:
-       - Simulate `X-Forwarded-For: 203.0.113.195, 10.0.0.1` -> Verify extracted IP is `203.0.113.195`.
+    1. **Unit Test: User-Agent Parsing, IP Extraction & Masking (`DeviceDetectionServiceTest`, `IpUtilsTest`)**:
+       - Simulate `X-Forwarded-For: 203.0.113.195, 10.0.0.1` -> Verify extracted raw IP is `203.0.113.195` and masked IP is `203.0.113.xxx`.
+       - Test IPv6 masking: `2001:db8:85a3::8a2e:370:7334` -> `2001:db8:85a3::xxxx`.
        - Simulate `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ... Chrome/120.0` -> Verify parsed device label is `"Chrome on Windows 10"`.
     2. **Unit Test: Risk-Based Evaluation Logic (`DeviceVerificationServiceTest`)**:
-       - **New Device Scenario**: `userDeviceRepository.findByUserIdAndDeviceHash(...)` returns `Optional.empty()` -> Verify new device entity is saved and `eventPublisher.publishEvent(any(NewDeviceLoginEvent.class))` executes exactly once.
-       - **Known Device Scenario (Alert Fatigue Prevention)**: `userDeviceRepository.findByUserIdAndDeviceHash(...)` returns existing device -> Verify `lastLoginAt` is updated and `eventPublisher.publishEvent(...)` is **NEVER** invoked (`never()`).
+       - **New Device Scenario**: `userDeviceRepository.findByUserIdAndDeviceHash(...)` returns `Optional.empty()` -> Verify new device entity is saved (with masked IP) and `eventPublisher.publishEvent(any(NewDeviceLoginEvent.class))` executes exactly once.
+       - **Known Device Scenario (Alert Fatigue Prevention)**: `userDeviceRepository.findByUserIdAndDeviceHash(...)` returns existing device -> Verify `lastLoginAt` and masked IP are updated, and `eventPublisher.publishEvent(...)` is **NEVER** invoked (`never()`).
     3. **Integration Test via MockMvc (`AuthControllerNewDeviceTest`)**:
-       - Execute successful login from a new user-agent -> Verify HTTP `200 OK` and verify asynchronous email dispatch via `Mockito.verify(emailService, timeout(2000).times(1)).sendNewDeviceLoginAlert(any())`.
+       - Execute successful login from a new user-agent/device -> Verify HTTP `200 OK` and verify asynchronous email dispatch via `Mockito.verify(emailService, timeout(2000).times(1)).sendNEwDeviceLoginAlert(any())` carries masked IP in metadata.
   - **Test Execution Commands**:
     - `rtk ./gradlew test --tests com.java.springtotp.service.DeviceDetectionServiceTest`
     - `rtk ./gradlew test --tests com.java.springtotp.service.DeviceVerificationServiceTest`

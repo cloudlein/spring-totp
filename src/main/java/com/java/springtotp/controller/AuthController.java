@@ -3,6 +3,7 @@ package com.java.springtotp.controller;
 import com.java.springtotp.dto.ApiResponse;
 import com.java.springtotp.dto.auth.*;
 import com.java.springtotp.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,8 +19,8 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
-        return ApiResponse.success(authService.login(loginRequest));
+    public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest, HttpServletRequest request) {
+        return ApiResponse.success(authService.login(loginRequest, request));
     }
 
     @PostMapping("/register")

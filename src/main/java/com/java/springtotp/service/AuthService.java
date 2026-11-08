@@ -2,10 +2,11 @@ package com.java.springtotp.service;
 
 import com.java.springtotp.dto.ApiResponse;
 import com.java.springtotp.dto.auth.*;
+import jakarta.servlet.http.HttpServletRequest;
 
 public interface AuthService {
 
-    AuthResponse login(LoginRequest loginRequest);
+    AuthResponse login(LoginRequest loginRequest, HttpServletRequest request);
     AuthResponse register(RegisterRequest registerRequest);
     void logout(String token);
     AuthResponse refreshToken(String refreshToken);
