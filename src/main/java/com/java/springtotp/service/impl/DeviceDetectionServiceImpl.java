@@ -3,6 +3,7 @@ package com.java.springtotp.service.impl;
 import com.java.springtotp.dto.userDevice.DeviceMetadata;
 import com.java.springtotp.service.DeviceDetectionService;
 import com.java.springtotp.util.GeoIpResolver;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,8 @@ public class DeviceDetectionServiceImpl implements DeviceDetectionService {
 
     private static final Set<String> TRUSTED_PROXIES = Set.of("127.0.0.1", "0:0:0:0:0:0:0:1", "10.0.0.2");
 
+    private static final String DEVICE_COOKIE = "__Host-device_id";
+
     private final GeoIpResolver geoIpResolver;
 
     @Override
@@ -41,10 +44,23 @@ public class DeviceDetectionServiceImpl implements DeviceDetectionService {
         String location = resolveLocation(ip);
         String deviceDetails = browser + " on " + os;
         String fingerprint = computeFingerPrint(deviceDetails);
+        String deviceToken = extractDeviceToken(request);
 
-        return new DeviceMetadata(ip, browser, os, location, deviceDetails, fingerprint);
+        return new DeviceMetadata(ip, browser, os, location, deviceDetails, fingerprint, deviceToken);
     }
 
+    private String extractDeviceToken(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+
+        for (Cookie c : cookies) {
+            if (DEVICE_COOKIE.equals(c.getName()) && isValid(c.getValue())){
+                return c.getValue().trim();
+            }
+        }
+
+        return null;
+    }
 
     private String extractIpClient(HttpServletRequest request) {
         String remoteAddr = request.getRemoteAddr();

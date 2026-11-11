@@ -20,27 +20,33 @@ public class DeviceVerificationServiceImpl implements DeviceVerificationService 
     private final DeviceDetectionService deviceDetectionService;
     private final UserDeviceRepository userDeviceRepository;
 
-
     @Override
     public void verifyDeviceAndNotify(User user, HttpServletRequest request) {
         DeviceMetadata metadata = deviceDetectionService.extractMetaData(request);
-        Optional<UserDevice> existingDevice = userDeviceRepository.findByUserIdAndDeviceHash(user.getId(), metadata.fingerprint());
+        String deviceToken = metadata.deviceToken();
+
+        Optional<UserDevice> existingDevice = (deviceToken == null)
+                ? Optional.empty()
+                : userDeviceRepository.findByUserIdAndDeviceHash(user.getId(), deviceToken);
+
         existingDevice.ifPresentOrElse(
                 device -> {
                     device.setLastLoginAt(Instant.now());
                     device.setIpAddress(metadata.ipAddress());
                     device.setLocation(metadata.location());
+                    device.setFingerPrint(metadata.fingerprint());
                     userDeviceRepository.save(device);
                 },
                 () -> {
-//                    UserDevice newDevice = UserDevice.builder()
-//                            .user(user)
-//                            .deviceDetails(metadata.deviceDetails())
-//                            .deviceHash(metadata.fingerprint())
-//                            .ipAddress(metadata.ipAddress())
-//                            .location(metadata.location())
-//                            .
-//                            .build();
+                    UserDevice newDevice = UserDevice.builder()
+                            .user(user)
+                            .deviceDetails(metadata.deviceDetails())
+                            .deviceHash(deviceToken)
+                            .ipAddress(metadata.ipAddress())
+                            .location(metadata.location())
+                            .fingerPrint(metadata.fingerprint())
+                            .build();
+                    userDeviceRepository.save(newDevice);
                 }
         );
     }

@@ -13,7 +13,8 @@ public record DeviceMetadata(
         String operatingSystem,
         String location,
         String deviceDetails,
-        String fingerprint
+        String fingerprint,
+        String deviceToken
 ){
     public DeviceMetadata {
         Objects.requireNonNull(browser, "browser");

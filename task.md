@@ -47,13 +47,13 @@ Technical task backlog and engineering specification for implementing Time-based
   - [x] Task 6.3: Domain Event & `@Async` Event Listener.
   - [x] Task 6.4: Event Publishing integration in `AuthServiceImpl`.
   - [x] Task 6.5: Unit & integration testing.
-- **Phase 7: Risk-Based New Device & Suspicious Location Security Alerts**: In Progress (~60%)
+- **Phase 7: Risk-Based New Device & Suspicious Location Security Alerts**: In Progress (~75%)
   - [x] Task 7.1: Entity & Repository for Known Devices (`UserDevice`, `UserDeviceRepository`, & Flyway migration `V4__create_user_device_table.sql`).
-  - [x] Task 7.2: Device Metadata & GeoIP Extraction Utility (`DeviceDetectionService`, `IpUtils`, `Fingerprints`, `NoOpGeoIpResolver`).
-  - [/] Task 7.3: Device Verification & Risk-Based Evaluation Logic in `AuthService` & `DeviceVerificationService` - *In Progress (Known device update implemented; new device persistence/event dispatch in `else` block, TOTP login flow hook, and `AuthServiceImplTest` signature update pending)*.
+  - [x] Task 7.2: Device Metadata & GeoIP Extraction Utility (`DeviceDetectionService`, `IpUtils`, `Fingerprints`, `NoOpGeoIpResolver`, persistent cookie token `__Host-device_id` extraction).
+  - [/] Task 7.3: Device Verification & Risk-Based Evaluation Logic in `AuthService` & `DeviceVerificationService` - *In Progress (~75% - Known device update with `fingerPrint` audit trail complete; `newDevice` persistence via `userDeviceRepository.save(newDevice)` in `else` block implemented; event publishing via `eventPublisher.publishEvent`, null-safe fallback for `deviceHash`, TOTP login flow hook in `verifyTotpLogin`, and `AuthServiceImplTest` signature update pending)*.
   - [x] Task 7.4: Domain Event & `@Async` Security Notification Listener (`NewDeviceLoginEvent` & `NewDeviceSecurityListener`).
-  - [/] Task 7.5: Security Notification Template (`new-device-login.html`) & `EmailService` Dispatch - *In Progress (Template created, context attributes populated; Resend dispatch via `sendEmail` and `EmailServiceImplTest` constructor fix pending)*.
-  - [ ] Task 7.6: Verification & Quality Assurance (Fix existing test compilation errors, add unit & integration tests for Phase 7).
+  - [/] Task 7.5: Security Notification Template (`new-device-login.html`) & `EmailService` Dispatch - *In Progress (~70% - Template created, context attributes populated; Resend dispatch via `sendEmail` and `EmailServiceImplTest` constructor fix pending)*.
+  - [ ] Task 7.6: Verification & Quality Assurance (Fix existing test compilation errors in `AuthServiceImplTest` and `EmailServiceImplTest`, add unit & integration tests for Phase 7).
 
 ---
 
@@ -436,9 +436,9 @@ class AuthControllerTest {
     1. Entity `UserDevice` extends `BaseModel`:
        - [x] Entity implemented with fields `user`, `deviceDetails`, `deviceHash`, `ipAddress`, `location`, `fingerPrint`, `lastLoginAt`.
        - [x] Unique constraint configured on `(user_id, device_hash)` (`uk_user_device_user_hash`).
-       - [/] **Field Semantic Refinements & Storage (Gaps & Current Status)**:
-         - [ ] `deviceHash`: Primary deterministic lookup key. Currently conflated with `fingerprint` (SHA-256 of `browser on OS`), which causes collisions across different machines sharing the same browser/OS. Needs deterministic identifier (e.g., extracted from persistent cookie token `__Host-device_id` or client device ID header).
-         - [ ] `fingerPrint`: Secondary client heuristic fingerprint (composite browser, OS, screen/headers) for anomaly detection and audit trail without duplicating `deviceHash`. Column exists in `UserDevice`, but is currently not set or updated in `DeviceVerificationServiceImpl`.
+       - [x] **Field Semantic Refinements & Storage (Gaps & Current Status)**:
+         - [x] `deviceHash`: Primary deterministic lookup key. Decoupled from heuristic fingerprints via persistent cookie token `__Host-device_id` (extracted via `DeviceDetectionServiceImpl.extractDeviceToken` and stored in `DeviceMetadata.deviceToken()`), with heuristic fingerprint as fallback.
+         - [x] `fingerPrint`: Secondary client heuristic fingerprint (composite browser, OS, screen/headers) for anomaly detection and audit trail without duplicating `deviceHash`. Column exists in `UserDevice`, set on new device instantiation in `DeviceVerificationServiceImpl` (`.fingerPrint(metadata.fingerprint())`) and refreshed on recognized device logins (`device.setFingerPrint(metadata.fingerprint())`).
          - [x] `ipAddress`: Store masked IP (e.g. `192.168.1.xxx` / IPv6 `2001:db8:85a3::xxxx`) via `IpUtils.maskIp(...)` for GDPR/privacy compliance (Guaranteed via auto-masking in `DeviceMetadata` compact constructor using `IpUtils.maskIp`).
     2. Interface `UserDeviceRepository` extends `JpaRepository<UserDevice, Long>`:
        - [x] Interface declared.
@@ -468,10 +468,10 @@ class AuthControllerTest {
        - [x] SHA-256 hashing utility `Fingerprints.sha256(...)`.
        - [x] Default `NoOpGeoIpResolver` fallback component.
     2. DTO / Record `DeviceMetadata`:
-       - [x] Record created with fields `ipAddress`, `browser`, `operatingSystem`, `location`, `deviceDetails`, `fingerprint`.
+       - [x] Record created with fields `ipAddress`, `browser`, `operatingSystem`, `location`, `deviceDetails`, `fingerprint`, `deviceToken`.
        - [x] Compact constructor implemented: sets `deviceDetails = browser + " on " + operatingSystem` and `fingerprint = Fingerprints.sha256(deviceDetails)`.
        - [x] Ensure `ipAddress` stored in `DeviceMetadata` or exposed to notifications is masked via `IpUtils.maskIp(rawIp)` (Handled automatically in compact constructor).
-       - [ ] Decouple `deviceHash` from `fingerprint`: add support for extracting persistent cookie token (`__Host-device_id`) in `DeviceDetectionServiceImpl` so `deviceHash` acts as unique client token and `fingerprint` acts as heuristic fallback.
+       - [x] Decouple `deviceHash` from `fingerprint`: Persistent cookie token (`__Host-device_id`) extraction implemented in `DeviceDetectionServiceImpl` (`extractDeviceToken`) and propagated into `DeviceMetadata.deviceToken()` so `deviceToken` acts as primary unique client token and `fingerprint` acts as heuristic fallback.
     3. Service Interface & Implementation (`DeviceDetectionService`):
        - [x] Interface declared with `DeviceMetadata extractMetaData(HttpServletRequest request)`.
        - [x] Implementation handles client IP resolution (`X-Forwarded-For`, `X-Real-IP`, loopback/proxy checks), User-Agent parsing, and GeoIP lookup.
@@ -481,10 +481,10 @@ class AuthControllerTest {
 ---
 
 - [/] **Task 7.3: Implement Device Verification & Risk-Based Evaluation Logic in `AuthService`**
-  - **Status**: In Progress (~60%)
+  - **Status**: In Progress (~75%)
   - **Target Files**:
     - [DeviceVerificationService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/DeviceVerificationService.java) *(Created)*
-    - [DeviceVerificationServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/DeviceVerificationServiceImpl.java) *(In Progress - Known device update complete; `else` block needs new device persistence & event publishing)*
+    - [DeviceVerificationServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/DeviceVerificationServiceImpl.java) *(In Progress - Known device update with `fingerPrint` audit trail complete; `newDevice` persistence in `else` block implemented; `deviceHash` null-fallback and event publishing pending)*
     - [AuthController.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/controller/AuthController.java) *(Updated - Injected `HttpServletRequest` into `/login`)*
     - [AuthService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/AuthService.java) *(Updated signature: `login(LoginRequest, HttpServletRequest)`)*
     - [AuthServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/AuthServiceImpl.java) *(Updated - Hooked `verifyDeviceAndNotify` into `login`)*
@@ -503,23 +503,24 @@ class AuthControllerTest {
     3. Query database via `userDeviceRepository.findByUserIdAndDeviceHash(user.getId(), targetDeviceHash)`:
        - **Condition A: Recognized Device (*Known Device*)**:
          - [x] Update fields `lastLoginAt = Instant.now()`, `location = metadata.location()`, and `ipAddress = metadata.ipAddress()` *(Masked format guaranteed by `DeviceMetadata` compact constructor)*.
-         - [ ] Maintain `fingerPrint` audit trail: invoke `device.setFingerPrint(metadata.fingerprint())` before saving.
+         - [x] Maintain `fingerPrint` audit trail: invoke `device.setFingerPrint(metadata.fingerprint())` before saving.
          - [x] Persist updates via `userDeviceRepository.save(device)`.
          - [x] **DO NOT** publish security alert event (Prevents alert fatigue).
        - **Condition B: Unrecognized Device / Location (*New Device Alert*)**:
-         - [ ] Complete `else` branch in `DeviceVerificationServiceImpl.java`:
-           - Extract deterministic `deviceHash` (cookie/header token) distinct from heuristic `fingerPrint`.
-           - Instantiate `UserDevice` with `user`, `deviceHash`, `fingerPrint = metadata.fingerprint()`, `deviceDetails`, `ipAddress = IpUtils.maskIp(metadata.ipAddress())`, `location`, `lastLoginAt = Instant.now()`.
-           - Persist new record via `userDeviceRepository.save(newDevice)`.
+         - [/] Complete `else` branch in `DeviceVerificationServiceImpl.java`:
+           - [x] Instantiate `UserDevice` with `user`, `deviceDetails`, `deviceHash = deviceToken`, `ipAddress = metadata.ipAddress()`, `location = metadata.location()`, `fingerPrint = metadata.fingerprint()`.
+           - [ ] Safe fallback for `deviceHash` when `deviceToken` is null/blank (fallback to `metadata.fingerprint()`) to ensure database non-null constraint (`device_hash VARCHAR(64) NOT NULL`).
+           - [x] Persist new record via `userDeviceRepository.save(newDevice)`.
          - **Event Publishing**:
-           - Publish `NewDeviceLoginEvent(user.getUsername(), user.getEmail(), metadata)` (with masked IP).
+           - [ ] Inject `ApplicationEventPublisher` in `DeviceVerificationServiceImpl`.
+           - [ ] Publish `NewDeviceLoginEvent(user.getUsername(), user.getEmail(), metadata)` (with masked IP).
          - [x] **Listener Action**: `NewDeviceSecurityListener.onNewDeviceLogin(NewDeviceLoginEvent event)`.
          - [ ] **Email Dispatch Action**: `emailService.sendNEwDeviceLoginAlert(...)` (displays masked IP in alert card; currently does not send email).
     4. Hook `deviceVerificationService.verifyDeviceAndNotify` into authentication flows:
        - [x] `AuthServiceImpl.login`: Hooked for non-TOTP login flow (`isTotpEnabled == false`).
        - [ ] `AuthServiceImpl.verifyTotpLogin`: Hook into TOTP verification upon valid 6-digit OTP code verification (pass `HttpServletRequest` via controller/service parameter or `RequestContextHolder`).
     5. Test Suite Fixes:
-       - [ ] Fix `AuthServiceImplTest`: Update unit test calls from `authService.login(request)` to `authService.login(request, httpServletRequest)`.
+       - [ ] Fix `AuthServiceImplTest`: Update unit test calls from `authService.login(request)` to `authService.login(request, httpServletRequest)` (lines 233, 265).
 
 ---
 
@@ -566,7 +567,7 @@ class AuthControllerTest {
        - [x] Prominent Emergency Action Button (CTA): *"Secure Your Account"*.
        - [x] Reassurance note: *"If this was you, no action is needed."*
     4. Test Suite Fixes:
-       - [ ] Fix `EmailServiceImplTest`: Update constructor instantiation to supply required `UserRepository` mock bean (or clean up unused `UserRepository` from `EmailServiceImpl`).
+       - [ ] Fix `EmailServiceImplTest`: Update constructor instantiation to supply required `UserRepository` mock bean (or clean up unused `UserRepository` from `EmailServiceImpl`) (line 55).
 
 ---
 
@@ -577,8 +578,8 @@ class AuthControllerTest {
     - [DeviceVerificationServiceTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/DeviceVerificationServiceTest.java)
     - [AuthControllerNewDeviceTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerNewDeviceTest.java)
   - **Current Test Suite Blockers**:
-    - `AuthServiceImplTest.java` compilation error: `authService.login(request)` does not match updated signature `login(LoginRequest, HttpServletRequest)`.
-    - `EmailServiceImplTest.java` compilation error: `new EmailServiceImpl(...)` missing required `UserRepository` constructor parameter.
+    - `AuthServiceImplTest.java` compilation error (lines 233, 265): `authService.login(request)` does not match updated signature `login(LoginRequest, HttpServletRequest)`.
+    - `EmailServiceImplTest.java` compilation error (line 55): `new EmailServiceImpl(...)` missing required `UserRepository` constructor parameter.
   - **Test Suite Scenarios**:
     1. **Unit Test: User-Agent Parsing, IP Extraction & Masking (`DeviceDetectionServiceTest`, `IpUtilsTest`)**:
        - Simulate `X-Forwarded-For: 203.0.113.195, 10.0.0.1` -> Verify extracted raw IP is `203.0.113.195` and masked IP is `203.0.113.xxx`.
