@@ -31,7 +31,6 @@ public class EmailServiceImpl implements EmailService {
     private final ResendProperties resendProperties;
     private final RestClient restClient;
     private final TemplateEngine templateEngine;
-    private final UserRepository userRepository;
 
     @Override
     public void sendEmail(ResendEmailRequest request) {
@@ -73,7 +72,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    public void sendNEwDeviceLoginAlert(String username , String email, DeviceMetadata deviceMetadata) {
+    public void sendNewDeviceLoginAlert(String username , String email, DeviceMetadata deviceMetadata) {
         try{
             Context context = new Context();
             context.setVariable("username", username);
@@ -84,6 +83,19 @@ public class EmailServiceImpl implements EmailService {
                     .format(DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm 'UTC'", Locale.ENGLISH)));
             context.setVariable("securityActionUrl", "https://app.support.dev.com/security/alert?token=...");
             context.setVariable("supportEmail", "support@dev.com");
+
+            String html = templateEngine.process("new-device-login",context );
+
+            ResendEmailRequest request = ResendEmailRequest.builder()
+                    .from(resendProperties.fromEmail())
+                    .to(List.of(email))
+                    .subject("Security alert: New sign-in from " + deviceMetadata.deviceDetails())
+                    .htmlContent(html)
+                    .build();
+
+            sendEmail(request);
+
+
         } catch (Exception e) {
             log.error("Failed to send new device login alert to {}: {}", email, e.getMessage(), e);
         }

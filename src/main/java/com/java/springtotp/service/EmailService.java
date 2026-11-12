@@ -8,6 +8,6 @@ public interface EmailService {
     void sendEmail(ResendEmailRequest request);
     void sendTotpEnabledAlert(String to, String username);
 
-    void sendNEwDeviceLoginAlert(String username , String email, DeviceMetadata deviceMetadata);
+    void sendNewDeviceLoginAlert(String username , String email, DeviceMetadata deviceMetadata);
 
 }

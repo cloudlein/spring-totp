@@ -1,6 +1,6 @@
 # TOTP & Mandatory MFA on Logout Implementation Roadmap
 
-Technical task backlog and engineering specification for implementing Time-based One-Time Password (TOTP) Two-Factor Authentication with the business rule: **Users are required to enable TOTP prior to logging out**, complemented with **Asynchronous Security Email Notifications via Resend** and **Risk-Based New Device / Suspicious Location Login Security Alerts**.
+Technical task backlog and engineering specification for implementing Time-based One-Time Password (TOTP) Two-Factor Authentication with the business rule: **Users are required to enable TOTP prior to logging out**, complemented with **Asynchronous Security Email Notifications via Resend**, **Risk-Based New Device / Suspicious Location Login Security Alerts**, and **Bot Protection via Cloudflare Turnstile CAPTCHA**.
 
 ---
 
@@ -19,6 +19,10 @@ Technical task backlog and engineering specification for implementing Time-based
    - The system inspects client metadata (User-Agent device fingerprint, IP address, and GeoIP location).
    - If the device and IP/location are already recognized for this user: session metadata is refreshed without triggering redundant notifications (preventing **Alert Fatigue**).
    - If the login originates from a **New Device / Browser** or an **Anomalous Location / IP**: an asynchronous security alert email is dispatched via Resend containing login timestamp, parsed device/browser details, IP address, estimated location, and a prominent emergency action link ("Bukan Anda? Amankan Akun").
+8. Public authentication endpoints (`/api/v1/auth/register` and `/api/v1/auth/login`) validate Cloudflare Turnstile CAPTCHA tokens:
+   - The client transmits the Turnstile token (via request body field `captchaToken` or header `CF-Turnstile-Token`).
+   - The backend validates the token against Cloudflare Siteverify API (`https://challenges.cloudflare.com/turnstile/v0/siteverify`) with secret key and client remote IP.
+   - If the token is missing, invalid, or expired: the request is rejected immediately with HTTP `400 Bad Request`, preventing brute-force and credential stuffing bots from reaching user validation logic.
 
 ---
 
@@ -47,13 +51,19 @@ Technical task backlog and engineering specification for implementing Time-based
   - [x] Task 6.3: Domain Event & `@Async` Event Listener.
   - [x] Task 6.4: Event Publishing integration in `AuthServiceImpl`.
   - [x] Task 6.5: Unit & integration testing.
-- **Phase 7: Risk-Based New Device & Suspicious Location Security Alerts**: In Progress (~75%)
+- **Phase 7: Risk-Based New Device & Suspicious Location Security Alerts**: 100% Completed
   - [x] Task 7.1: Entity & Repository for Known Devices (`UserDevice`, `UserDeviceRepository`, & Flyway migration `V4__create_user_device_table.sql`).
   - [x] Task 7.2: Device Metadata & GeoIP Extraction Utility (`DeviceDetectionService`, `IpUtils`, `Fingerprints`, `NoOpGeoIpResolver`, persistent cookie token `__Host-device_id` extraction).
-  - [/] Task 7.3: Device Verification & Risk-Based Evaluation Logic in `AuthService` & `DeviceVerificationService` - *In Progress (~75% - Known device update with `fingerPrint` audit trail complete; `newDevice` persistence via `userDeviceRepository.save(newDevice)` in `else` block implemented; event publishing via `eventPublisher.publishEvent`, null-safe fallback for `deviceHash`, TOTP login flow hook in `verifyTotpLogin`, and `AuthServiceImplTest` signature update pending)*.
-  - [x] Task 7.4: Domain Event & `@Async` Security Notification Listener (`NewDeviceLoginEvent` & `NewDeviceSecurityListener`).
-  - [/] Task 7.5: Security Notification Template (`new-device-login.html`) & `EmailService` Dispatch - *In Progress (~70% - Template created, context attributes populated; Resend dispatch via `sendEmail` and `EmailServiceImplTest` constructor fix pending)*.
-  - [ ] Task 7.6: Verification & Quality Assurance (Fix existing test compilation errors in `AuthServiceImplTest` and `EmailServiceImplTest`, add unit & integration tests for Phase 7).
+  - [x] Task 7.3: Device Verification & Risk-Based Evaluation Logic in `AuthService` & `DeviceVerificationService` - *100% Completed (Known device update with `fingerPrint` audit trail, `newDevice` persistence with `deviceHash` fallback, event publishing, and hooks in both `login` and `verifyTotpLogin` implemented)*.
+  - [x] Task 7.4: Domain Event & `@Async` Security Notification Listener (`NewDeviceLoginEvent` & `NewDeviceSecurityListener` with fallback execution).
+  - [x] Task 7.5: Security Notification Template (`new-device-login.html`) & `EmailService` Dispatch - *100% Completed (Normalized method name `sendNewDeviceLoginAlert`, template rendering, Resend dispatch via `sendEmail(request)`, recursive call resolved)*.
+  - [x] Task 7.6: Verification & Quality Assurance (Fixed test compilation errors and missing mock in `AuthServiceImplTest`, added unit tests for `DeviceVerificationServiceTest`, `DeviceDetectionServiceTest`, `NewDeviceSecurityListenerTest`, and `EmailServiceImplTest`).
+- **Phase 8: Bot Protection via Cloudflare Turnstile CAPTCHA**: In Progress (0%)
+  - [ ] Task 8.1: Configuration & Environment Properties (`TurnstileProperties`, `application.yaml`, and `.env.example`).
+  - [ ] Task 8.2: Turnstile API DTOs & Validation Service (`TurnstileResponse`, `TurnstileService`, `TurnstileServiceImpl` via `RestClient`).
+  - [ ] Task 8.3: Request DTO Integration (`captchaToken` in `LoginRequest` & `RegisterRequest` with Bean Validation).
+  - [ ] Task 8.4: Enforcement Logic in `AuthService` / `AuthController` (`validateCaptcha` hook before credentials check).
+  - [ ] Task 8.5: Verification & Quality Assurance (`TurnstileServiceTest`, MockMvc controller tests, and mock testing profile).
 
 ---
 
@@ -480,17 +490,17 @@ class AuthControllerTest {
 
 ---
 
-- [/] **Task 7.3: Implement Device Verification & Risk-Based Evaluation Logic in `AuthService`**
-  - **Status**: In Progress (~75%)
+- [x] **Task 7.3: Implement Device Verification & Risk-Based Evaluation Logic in `AuthService`**
+  - **Status**: Completed
   - **Target Files**:
-    - [DeviceVerificationService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/DeviceVerificationService.java) *(Created)*
-    - [DeviceVerificationServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/DeviceVerificationServiceImpl.java) *(In Progress - Known device update with `fingerPrint` audit trail complete; `newDevice` persistence in `else` block implemented; `deviceHash` null-fallback and event publishing pending)*
-    - [AuthController.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/controller/AuthController.java) *(Updated - Injected `HttpServletRequest` into `/login`)*
-    - [AuthService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/AuthService.java) *(Updated signature: `login(LoginRequest, HttpServletRequest)`)*
-    - [AuthServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/AuthServiceImpl.java) *(Updated - Hooked `verifyDeviceAndNotify` into `login`)*
+    - [DeviceVerificationService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/DeviceVerificationService.java) *(Completed)*
+    - [DeviceVerificationServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/DeviceVerificationServiceImpl.java) *(Completed - Known device update with `fingerPrint` audit trail, `newDevice` persistence with `deviceHash` SHA-256 fallback derivation, and event publishing via `eventPublisher.publishEvent`)*
+    - [AuthController.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/controller/AuthController.java) *(Updated - Injected `HttpServletRequest` into `/login` and `/totp/verify`)*
+    - [AuthService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/AuthService.java) *(Updated signatures: `login(LoginRequest, HttpServletRequest)` and `verifyTotpLogin(TotpVerifyRequest, HttpServletRequest)`)*
+    - [AuthServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/AuthServiceImpl.java) *(Updated - Hooked `verifyDeviceAndNotify` into both `login` and `verifyTotpLogin`)*
   - **Architectural Design (Device Recognition & Privacy Compliance)**:
     - **Device Recognition Strategy**:
-      - `deviceHash`: Primary deterministic identifier. SHA-256 hash of device cookie token (`__Host-device_id` or primary device identifier).
+      - `deviceHash`: Primary deterministic identifier. SHA-256 hash of device cookie token (`__Host-device_id` or primary device identifier) or SHA-256 fallback of `metadata.fingerprint()`.
       - `fingerPrint`: Secondary client heuristic fingerprint (composite browser, OS, screen/headers) for anomaly detection and audit trail without duplicating `deviceHash`.
       - `deviceDetails`: Human-readable label (e.g. `"Chrome on Windows"`) for security cards and email templates.
     - **IP Masking & Privacy (GDPR / UU PDP Compliance)**:
@@ -502,55 +512,56 @@ class AuthControllerTest {
     2. Extract request metadata via `deviceDetectionService.extractMetaData(request)`.
     3. Query database via `userDeviceRepository.findByUserIdAndDeviceHash(user.getId(), targetDeviceHash)`:
        - **Condition A: Recognized Device (*Known Device*)**:
-         - [x] Update fields `lastLoginAt = Instant.now()`, `location = metadata.location()`, and `ipAddress = metadata.ipAddress()` *(Masked format guaranteed by `DeviceMetadata` compact constructor)*.
+         - [x] Update fields `lastLoginAt = Instant.now()`, `location = metadata.location()`, and `ipAddress = metadata.ipAddress()` *(Masked format guaranteed by `DeviceMetadata` compact constructor)*
          - [x] Maintain `fingerPrint` audit trail: invoke `device.setFingerPrint(metadata.fingerprint())` before saving.
          - [x] Persist updates via `userDeviceRepository.save(device)`.
          - [x] **DO NOT** publish security alert event (Prevents alert fatigue).
        - **Condition B: Unrecognized Device / Location (*New Device Alert*)**:
-         - [/] Complete `else` branch in `DeviceVerificationServiceImpl.java`:
-           - [x] Instantiate `UserDevice` with `user`, `deviceDetails`, `deviceHash = deviceToken`, `ipAddress = metadata.ipAddress()`, `location = metadata.location()`, `fingerPrint = metadata.fingerprint()`.
-           - [ ] Safe fallback for `deviceHash` when `deviceToken` is null/blank (fallback to `metadata.fingerprint()`) to ensure database non-null constraint (`device_hash VARCHAR(64) NOT NULL`).
+         - [x] Complete `else` branch in `DeviceVerificationServiceImpl.java`:
+           - [x] Resolve `deviceHash` via SHA-256 with fallback to `fingerprint`.
+           - [x] Instantiate `UserDevice` with `user`, `deviceDetails`, `deviceHash`, `ipAddress = metadata.ipAddress()`, `location = metadata.location()`, `fingerPrint = metadata.fingerprint()`.
            - [x] Persist new record via `userDeviceRepository.save(newDevice)`.
          - **Event Publishing**:
-           - [ ] Inject `ApplicationEventPublisher` in `DeviceVerificationServiceImpl`.
-           - [ ] Publish `NewDeviceLoginEvent(user.getUsername(), user.getEmail(), metadata)` (with masked IP).
+           - [x] Inject `ApplicationEventPublisher` in `DeviceVerificationServiceImpl`.
+           - [x] Publish `NewDeviceLoginEvent(user.getUsername(), user.getEmail(), metadata)` (with masked IP).
          - [x] **Listener Action**: `NewDeviceSecurityListener.onNewDeviceLogin(NewDeviceLoginEvent event)`.
-         - [ ] **Email Dispatch Action**: `emailService.sendNEwDeviceLoginAlert(...)` (displays masked IP in alert card; currently does not send email).
+         - [x] **Email Dispatch Action**: `emailService.sendNewDeviceLoginAlert(...)` (displays masked IP in alert card; dispatches via `sendEmail`).
     4. Hook `deviceVerificationService.verifyDeviceAndNotify` into authentication flows:
        - [x] `AuthServiceImpl.login`: Hooked for non-TOTP login flow (`isTotpEnabled == false`).
-       - [ ] `AuthServiceImpl.verifyTotpLogin`: Hook into TOTP verification upon valid 6-digit OTP code verification (pass `HttpServletRequest` via controller/service parameter or `RequestContextHolder`).
-    5. Test Suite Fixes:
-       - [ ] Fix `AuthServiceImplTest`: Update unit test calls from `authService.login(request)` to `authService.login(request, httpServletRequest)` (lines 233, 265).
+       - [x] `AuthServiceImpl.verifyTotpLogin`: Hooked into TOTP verification upon valid 6-digit OTP code verification.
+    5. Test Suite Updates (Tracked under Task 7.6):
+       - [ ] Update `AuthServiceImplTest`: Add `@Mock private DeviceVerificationService deviceVerificationService;` and pass `new MockHttpServletRequest()` to `login(...)` and `verifyTotpLogin(...)`.
 
 ---
 
 - [x] **Task 7.4: Implement Domain Event & Asynchronous Security Notification Listener**
   - **Status**: Completed
   - **Target Files**:
-    - [NewDeviceLoginEvent.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/event/NewDeviceLoginEvent.java) *(Created)*
-    - [NewDeviceSecurityListener.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/event/NewDeviceSecurityListener.java) *(Created)*
+    - [NewDeviceLoginEvent.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/event/NewDeviceLoginEvent.java) *(Completed with `@Builder`)*
+    - [NewDeviceSecurityListener.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/event/NewDeviceSecurityListener.java) *(Completed with `fallbackExecution = true`)*
   - **Requirements & Specifications**:
     1. Record `NewDeviceLoginEvent`:
        - [x] Record created with fields `username`, `email`, `deviceMetadata`.
-       - [ ] Ensure `deviceMetadata.ipAddress()` carries masked IP format for safe template rendering.
+       - [x] Ensure `deviceMetadata.ipAddress()` carries masked IP format for safe template rendering (Guaranteed via `DeviceMetadata` compact constructor).
     2. Component `NewDeviceSecurityListener`:
        - [x] Method: `onNewDeviceLogin(NewDeviceLoginEvent event)`.
        - [x] Annotate with `@Async` for non-blocking background thread pool execution.
-       - [x] Annotate with `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`.
+       - [x] Annotate with `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)`.
        - [x] Contain all exceptions in a `try-catch` block: log failures cleanly without bubbling exceptions.
 
 ---
 
-- [/] **Task 7.5: Security Notification Template & `EmailService` Integration**
-  - **Status**: In Progress (~70%)
+- [x] **Task 7.5: Security Notification Template & `EmailService` Integration**
+  - **Status**: Completed
   - **Target Files**:
     - [new-device-login.html](file:///home/udin/projects/spring-totp/src/main/resources/templates/new-device-login.html) *(Completed)*
-    - [EmailService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/EmailService.java) *(Completed)*
-    - [EmailServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/EmailServiceImpl.java) *(In Progress - Template rendering completed, needs Resend dispatch call)*
+    - [EmailService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/EmailService.java) *(Completed - Method normalized to `sendNewDeviceLoginAlert`)*
+    - [EmailServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/EmailServiceImpl.java) *(Completed - Template rendering, Resend dispatch via `sendEmail(request)`, recursive bug resolved)*
   - **Requirements & Specifications**:
     1. Extend interface `EmailService`:
-       - [x] Declare: `void sendNEwDeviceLoginAlert(String username, String email, DeviceMetadata deviceMetadata)`.
+       - [x] Declare: `void sendNewDeviceLoginAlert(String username, String email, DeviceMetadata deviceMetadata)`.
     2. Implementation in `EmailServiceImpl`:
+       - [x] Clean up unused `UserRepository` dependency from `EmailServiceImpl` constructor (resolves test constructor mismatch).
        - [x] Process Thymeleaf template `new-device-login.html` with context attributes:
          - `username`: User display name.
          - `deviceDetails`: Parsed browser and OS.
@@ -559,7 +570,8 @@ class AuthControllerTest {
          - `loginTime`: Human-friendly formatted timestamp.
          - `securityActionUrl`: Emergency action link.
          - `supportEmail`: Support contact email.
-       - [ ] Build `ResendEmailRequest` and dispatch via `sendEmail(request)` inside `sendNEwDeviceLoginAlert`.
+       - [x] Build `ResendEmailRequest` with sender, recipient, subject, and rendered HTML body.
+       - [x] Dispatch via `sendEmail(request)` inside `sendNewDeviceLoginAlert`.
     3. Template Design `new-device-login.html`:
        - [x] Professional, clean, responsive security card layout.
        - [x] Header: **"Security alert: New sign-in"**.
@@ -567,19 +579,22 @@ class AuthControllerTest {
        - [x] Prominent Emergency Action Button (CTA): *"Secure Your Account"*.
        - [x] Reassurance note: *"If this was you, no action is needed."*
     4. Test Suite Fixes:
-       - [ ] Fix `EmailServiceImplTest`: Update constructor instantiation to supply required `UserRepository` mock bean (or clean up unused `UserRepository` from `EmailServiceImpl`) (line 55).
+       - [x] Fix `EmailServiceImplTest`: Constructor compatibility restored by removing unused `UserRepository` from `EmailServiceImpl`.
 
 ---
 
-- [ ] **Task 7.6: Verification & Quality Assurance (Testing Specification)**
-  - **Status**: Pending
+- [x] **Task 7.6: Verification & Quality Assurance (Testing Specification)**
+  - **Status**: Completed
   - **Target Files**:
-    - [DeviceDetectionServiceTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/DeviceDetectionServiceTest.java)
-    - [DeviceVerificationServiceTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/DeviceVerificationServiceTest.java)
-    - [AuthControllerNewDeviceTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerNewDeviceTest.java)
-  - **Current Test Suite Blockers**:
-    - `AuthServiceImplTest.java` compilation error (lines 233, 265): `authService.login(request)` does not match updated signature `login(LoginRequest, HttpServletRequest)`.
-    - `EmailServiceImplTest.java` compilation error (line 55): `new EmailServiceImpl(...)` missing required `UserRepository` constructor parameter.
+    - [DeviceDetectionServiceTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/DeviceDetectionServiceTest.java) *(Created & passing)*
+    - [DeviceVerificationServiceTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/DeviceVerificationServiceTest.java) *(Created & passing)*
+    - [NewDeviceSecurityListenerTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/event/NewDeviceSecurityListenerTest.java) *(Created & passing)*
+    - [AuthServiceImplTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/AuthServiceImplTest.java) *(Fixed compilation errors & mock verification)*
+    - [EmailServiceImplTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/EmailServiceImplTest.java) *(Extended with new-device alert test)*
+  - **Resolved Blockers**:
+    - [x] `AuthServiceImplTest.java` compilation errors resolved by supplying `MockHttpServletRequest` and verifying `deviceVerificationService`.
+    - [x] `AuthServiceImplTest.java` added `@Mock private DeviceVerificationService deviceVerificationService;`.
+    - [x] Fixed `DeviceVerificationServiceImpl.java` missing `lastLoginAt(Instant.now())` when creating `newDevice`.
   - **Test Suite Scenarios**:
     1. **Unit Test: User-Agent Parsing, IP Extraction & Masking (`DeviceDetectionServiceTest`, `IpUtilsTest`)**:
        - Simulate `X-Forwarded-For: 203.0.113.195, 10.0.0.1` -> Verify extracted raw IP is `203.0.113.195` and masked IP is `203.0.113.xxx`.
@@ -589,8 +604,130 @@ class AuthControllerTest {
        - **New Device Scenario**: `userDeviceRepository.findByUserIdAndDeviceHash(...)` returns `Optional.empty()` -> Verify new device entity is saved (with masked IP) and `eventPublisher.publishEvent(any(NewDeviceLoginEvent.class))` executes exactly once.
        - **Known Device Scenario (Alert Fatigue Prevention)**: `userDeviceRepository.findByUserIdAndDeviceHash(...)` returns existing device -> Verify `lastLoginAt` and masked IP are updated, and `eventPublisher.publishEvent(...)` is **NEVER** invoked (`never()`).
     3. **Integration Test via MockMvc (`AuthControllerNewDeviceTest`)**:
-       - Execute successful login from a new user-agent/device -> Verify HTTP `200 OK` and verify asynchronous email dispatch via `Mockito.verify(emailService, timeout(2000).times(1)).sendNEwDeviceLoginAlert(any())` carries masked IP in metadata.
+       - Execute successful login from a new user-agent/device -> Verify HTTP `200 OK` and verify asynchronous email dispatch via `Mockito.verify(emailService, timeout(2000).times(1)).sendNewDeviceLoginAlert(any())` carries masked IP in metadata.
   - **Test Execution Commands**:
     - `rtk ./gradlew test --tests com.java.springtotp.service.DeviceDetectionServiceTest`
     - `rtk ./gradlew test --tests com.java.springtotp.service.DeviceVerificationServiceTest`
+
+---
+
+### Phase 8: Bot Protection via Cloudflare Turnstile CAPTCHA
+
+> [!TIP]
+> **Core Concepts: Cloudflare Turnstile vs Legacy CAPTCHA**:
+> 1. **User Experience & Privacy**:
+>    - Traditional CAPTCHAs (like Google reCAPTCHA v2) disrupt user experience with frustrating puzzle images (crosswalks, traffic lights, fire hydrants) and track users across the web via Google cookies.
+>    - **Cloudflare Turnstile** provides a smart, privacy-preserving CAPTCHA alternative. It runs non-interactive browser challenges in the background without user friction or data harvesting.
+> 2. **Verification Lifecycle**:
+>    - **Frontend**: The client widget renders Turnstile and generates a single-use token (`cf-turnstile-response`).
+>    - **Request**: Client submits the token alongside login or registration payloads in the `captchaToken` field.
+>    - **Backend Validation**: The Spring Boot server sends a server-to-server `POST` request to `https://challenges.cloudflare.com/turnstile/v0/siteverify` supplying the secret key, client token, and remote IP.
+>    - **Gatekeeping**: If verification fails or token is missing, the request is immediately rejected with HTTP `400 Bad Request` before invoking expensive password hashing (`BCrypt`) or database queries, effectively neutralizing credential stuffing and brute-force bot attacks.
+> 3. **Cloudflare Test Keys (Dummy Keys for Development & Testing)**:
+>    - **Always Passes**: Sitekey: `1x00000000000000000000AA` | Secret: `1x0000000000000000000000000000000AA`
+>    - **Always Fails**: Sitekey: `2x00000000000000000000AB` | Secret: `2x0000000000000000000000000000000AA`
+
+---
+
+- [ ] **Task 8.1: Create Configuration & Environment Properties (`TurnstileProperties`)**
+  - **Status**: Pending
+  - **Target Files**:
+    - `src/main/resources/application.yaml`
+    - `src/main/resources/application-dev.yaml`
+    - `.env` & `env.example`
+    - [TurnstileProperties.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/properties/TurnstileProperties.java)
+  - **Requirements & Configuration**:
+    1. Define environment properties:
+       - `application.turnstile.secret-key=${TURNSTILE_SECRET_KEY:1x0000000000000000000000000000000AA}`
+       - `application.turnstile.site-key=${TURNSTILE_SITE_KEY:1x00000000000000000000AA}`
+       - `application.turnstile.verify-url=${TURNSTILE_VERIFY_URL:https://challenges.cloudflare.com/turnstile/v0/siteverify}`
+       - `application.turnstile.enabled=${TURNSTILE_ENABLED:true}`
+    2. Create `TurnstileProperties` record with `@ConfigurationProperties(prefix = "application.turnstile")`:
+       - `secretKey` (String)
+       - `siteKey` (String)
+       - `verifyUrl` (String)
+       - `enabled` (boolean, default `true`)
+
+---
+
+- [ ] **Task 8.2: Create Turnstile DTOs & Validation Service (`TurnstileService`)**
+  - **Status**: Pending
+  - **Target Files**:
+    - [TurnstileResponse.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/dto/captcha/TurnstileResponse.java)
+    - [TurnstileService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/TurnstileService.java)
+    - [TurnstileServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/TurnstileServiceImpl.java)
+  - **Requirements & Method Specifications**:
+    1. DTO / Record `TurnstileResponse`:
+       - `boolean success`
+       - `@JsonProperty("error-codes") List<String> errorCodes`
+       - `@JsonProperty("challenge_ts") String challengeTs`
+       - `String hostname`
+       - `String action`
+       - `String cdata`
+    2. Interface `TurnstileService`:
+       - `boolean verifyToken(String captchaToken, String remoteIp)`
+       - `void validateOrThrow(String captchaToken, String remoteIp)`
+    3. Implementation `TurnstileServiceImpl`:
+       - Injects `RestClient`, `TurnstileProperties`.
+       - If `!turnstileProperties.enabled()`, log debug message and immediately return `true` (dev/test bypass flag).
+       - Validate `captchaToken`: If null or blank, return `false`.
+       - Execute `POST` to `verifyUrl` submitting form data / body parameters:
+         - `secret`: `turnstileProperties.secretKey()`
+         - `response`: `captchaToken`
+         - `remoteip`: `remoteIp` (optional)
+       - Check response: if `response != null && response.success()`, return `true`; else log error codes and return `false`.
+       - In `validateOrThrow`: if `!verifyToken(...)`, throw `BadRequestException("Invalid or expired CAPTCHA token")`.
+
+---
+
+- [ ] **Task 8.3: Request DTO Integration (`captchaToken`)**
+  - **Status**: Pending
+  - **Target Files**:
+    - [LoginRequest.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/dto/auth/LoginRequest.java)
+    - [RegisterRequest.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/dto/auth/RegisterRequest.java)
+  - **Requirements**:
+    - Add field `private String captchaToken;` to both `LoginRequest` and `RegisterRequest`.
+    - Annotate with `@NotBlank(message = "Captcha token is required")` or handle validation gracefully in service layer when `turnstile.enabled=true`.
+
+---
+
+- [ ] **Task 8.4: Enforce CAPTCHA Verification in `AuthService`**
+  - **Status**: Pending
+  - **Target Files**:
+    - [AuthServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/AuthServiceImpl.java)
+  - **Execution Flow**:
+    1. Inject `TurnstileService` in `AuthServiceImpl`.
+    2. In `register(RegisterRequest registerRequest)`:
+       - Validate CAPTCHA before checking user existence:
+         `turnstileService.validateOrThrow(registerRequest.getCaptchaToken(), null);`
+    3. In `login(LoginRequest loginRequest, HttpServletRequest request)`:
+       - Validate CAPTCHA before evaluating credentials against `authenticationManager`:
+         `turnstileService.validateOrThrow(loginRequest.getCaptchaToken(), extractIpClient(request));`
+    4. If validation fails: throws `BadRequestException("Invalid or expired CAPTCHA token")`.
+
+---
+
+- [ ] **Task 8.5: Verification & Quality Assurance (Testing Specification)**
+  - **Status**: Pending
+  - **Target Files**:
+    - [TurnstileServiceImplTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/TurnstileServiceImplTest.java)
+    - [AuthServiceImplTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/service/AuthServiceImplTest.java)
+    - [AuthControllerTest.java](file:///home/udin/projects/spring-totp/src/test/java/com/java/springtotp/controller/AuthControllerTest.java)
+  - **Test Suite Scenarios**:
+    1. **Unit Test: `TurnstileServiceImplTest`**:
+       - Positive Scenario: Valid token returns `true` when Cloudflare responds `{"success": true}`.
+       - Negative Scenario: Invalid token returns `false` when Cloudflare responds `{"success": false, "error-codes": ["invalid-input-response"]}`.
+       - Blank/Null Token: Returns `false` immediately without remote network call.
+       - Disabled Flag: When `enabled = false`, returns `true` immediately without network call.
+       - Error Containment: Network timeout / 500 error from Cloudflare handled gracefully, returns `false`.
+    2. **Unit Test Updates: `AuthServiceImplTest`**:
+       - Add `@Mock private TurnstileService turnstileService;`.
+       - Test `register` throws `BadRequestException` when `turnstileService.validateOrThrow` fails.
+       - Test `login` throws `BadRequestException` when `turnstileService.validateOrThrow` fails.
+    3. **Controller Test Updates**:
+       - Update `AuthControllerTest` requests with dummy pass token (`1x00000000000000000000AA`) or mock `TurnstileService`.
+  - **Test Execution Commands**:
+    - `rtk ./gradlew test --tests com.java.springtotp.service.TurnstileServiceImplTest`
+    - `rtk ./gradlew test --tests com.java.springtotp.service.AuthServiceImplTest`
+
 

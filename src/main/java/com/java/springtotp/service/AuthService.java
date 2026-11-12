@@ -15,5 +15,5 @@ public interface AuthService {
 
     void enableTotp(String username, String code);
 
-    AuthResponse verifyTotpLogin(TotpVerifyRequest totpVerifyRequest);
+    AuthResponse verifyTotpLogin(TotpVerifyRequest totpVerifyRequest, HttpServletRequest request);
 }

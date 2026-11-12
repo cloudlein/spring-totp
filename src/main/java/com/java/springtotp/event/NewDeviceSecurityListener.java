@@ -16,10 +16,10 @@ public class NewDeviceSecurityListener {
     private final EmailService emailService;
 
     @Async
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onNewDeviceLogin(NewDeviceLoginEvent event) {
-        try{
-            emailService.sendNEwDeviceLoginAlert(event.username(), event.email(), event.deviceMetadata());
+        try {
+            emailService.sendNewDeviceLoginAlert(event.username(), event.email(), event.deviceMetadata());
         } catch (Exception e) {
             log.error("Failed to send new device login alert to {}: {}",
                     event.email(), e.getMessage(), e);

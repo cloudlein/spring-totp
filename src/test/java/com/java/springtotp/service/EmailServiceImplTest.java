@@ -1,6 +1,7 @@
 package com.java.springtotp.service;
 
 import com.java.springtotp.dto.email.ResendEmailRequest;
+import com.java.springtotp.dto.userDevice.DeviceMetadata;
 import com.java.springtotp.properties.ResendProperties;
 import com.java.springtotp.service.impl.EmailServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -111,6 +112,28 @@ class EmailServiceImplTest {
 
         assertThatCode(() -> emailService.sendTotpEnabledAlert("user@example.com", "testuser"))
                 .doesNotThrowAnyException();
+
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("sendNewDeviceLoginAlert processes new-device-login template and dispatches email")
+    void sendNewDeviceLoginAlert_ShouldRenderTemplateAndSendEmail() {
+        when(templateEngine.process(eq("new-device-login"), any(Context.class)))
+                .thenReturn("<p>New Sign-in Alert</p>");
+
+        mockServer.expect(requestTo("/emails"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess("{\"id\":\"email_789\"}", MediaType.APPLICATION_JSON));
+
+        DeviceMetadata metadata = DeviceMetadata.builder()
+                .browser("Firefox")
+                .operatingSystem("Linux")
+                .ipAddress("103.22.10.5")
+                .location("Singapore, SG")
+                .build();
+
+        emailService.sendNewDeviceLoginAlert("testuser", "user@example.com", metadata);
 
         mockServer.verify();
     }

@@ -189,7 +189,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthResponse verifyTotpLogin(TotpVerifyRequest totpVerifyRequest) {
+    public AuthResponse verifyTotpLogin(TotpVerifyRequest totpVerifyRequest, HttpServletRequest request) {
 
         String username = jwtService.extractUsername(totpVerifyRequest.getTempToken());
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
@@ -202,6 +202,8 @@ public class AuthServiceImpl implements AuthService {
          if (!totpService.verifyCode(user.getTotpSecret(), totpVerifyRequest.getCode())) {
              throw new BadRequestException("invalid TOTP verification code");
          }
+
+        deviceVerificationService.verifyDeviceAndNotify(user, request);
 
         String accessToken = jwtService.generateToken(userDetails);
         String refreshToken = jwtService.generateTokenRefresh(userDetails);

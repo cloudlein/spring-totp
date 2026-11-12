@@ -59,8 +59,11 @@ public class AuthController {
     }
 
     @PostMapping("/totp/verify")
-    public ApiResponse<AuthResponse> verifyTotp(@Valid @RequestBody TotpVerifyRequest request) {
-        AuthResponse response = authService.verifyTotpLogin(request);
+    public ApiResponse<AuthResponse> verifyTotp(
+            @Valid @RequestBody TotpVerifyRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        AuthResponse response = authService.verifyTotpLogin(request, httpRequest);
         return ApiResponse.success("success verify totp", response);
     }
 

@@ -34,6 +34,10 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.java.springtotp.service.DeviceVerificationService;
+import org.springframework.mock.web.MockHttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
+
 import java.util.Date;
 import java.util.Optional;
 
@@ -80,6 +84,9 @@ class AuthServiceImplTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private DeviceVerificationService deviceVerificationService;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -230,12 +237,14 @@ class AuthServiceImplTest {
         when(jwtService.generateToken(userDetails)).thenReturn("access-token");
         when(jwtService.generateTokenRefresh(userDetails)).thenReturn("refresh-token");
 
-        AuthResponse response = authService.login(request);
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        AuthResponse response = authService.login(request, httpRequest);
 
         assertThat(response.getToken()).isEqualTo("access-token");
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
         assertThat(response.getMfaRequired()).isNull();
         assertThat(response.getTempToken()).isNull();
+        verify(deviceVerificationService).verifyDeviceAndNotify(user, httpRequest);
     }
 
     @Test
@@ -262,12 +271,14 @@ class AuthServiceImplTest {
         when(userRepository.findByUsername("mfauser")).thenReturn(Optional.of(user));
         when(jwtService.generateMfaToken(userDetails)).thenReturn("temp-token");
 
-        AuthResponse response = authService.login(request);
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        AuthResponse response = authService.login(request, httpRequest);
 
         assertThat(response.getMfaRequired()).isTrue();
         assertThat(response.getTempToken()).isEqualTo("temp-token");
         assertThat(response.getToken()).isNull();
         assertThat(response.getRefreshToken()).isNull();
+        verify(deviceVerificationService, never()).verifyDeviceAndNotify(any(), any());
     }
 
     @Test
@@ -294,10 +305,12 @@ class AuthServiceImplTest {
         when(jwtService.generateToken(userDetails)).thenReturn("new-access-token");
         when(jwtService.generateTokenRefresh(userDetails)).thenReturn("new-refresh-token");
 
-        AuthResponse response = authService.verifyTotpLogin(request);
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        AuthResponse response = authService.verifyTotpLogin(request, httpRequest);
 
         assertThat(response.getToken()).isEqualTo("new-access-token");
         assertThat(response.getRefreshToken()).isEqualTo("new-refresh-token");
+        verify(deviceVerificationService).verifyDeviceAndNotify(user, httpRequest);
     }
 
     @Test
@@ -316,7 +329,8 @@ class AuthServiceImplTest {
         when(userRepository.findByUsername("mfauser")).thenReturn(Optional.of(user));
         when(jwtService.extractTokenType("standard-token")).thenReturn("ACCESS");
 
-        assertThatThrownBy(() -> authService.verifyTotpLogin(request))
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        assertThatThrownBy(() -> authService.verifyTotpLogin(request, httpRequest))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("invalid TOTP verification code");
     }
@@ -339,7 +353,8 @@ class AuthServiceImplTest {
         when(jwtService.isValidToken("valid-temp-token", userDetails)).thenReturn(true);
         when(totpService.verifyCode("SECRET", "999999")).thenReturn(false);
 
-        assertThatThrownBy(() -> authService.verifyTotpLogin(request))
+        MockHttpServletRequest httpRequest = new MockHttpServletRequest();
+        assertThatThrownBy(() -> authService.verifyTotpLogin(request, httpRequest))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("invalid TOTP verification code");
     }
