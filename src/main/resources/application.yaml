@@ -52,7 +52,7 @@ springdoc:
     operations-sorter: alpha
     tags-sorter: alpha
 
-# JWT Security Configurations
+# Application Configurations
 application:
   security:
     jwt:
@@ -66,3 +66,9 @@ application:
     api-key: ${RESEND_API_KEY}
     from-email: ${RESEND_FROM_EMAIL}
     base-url: ${RESEND_BASE_URL}
+
+  turnstile:
+    secret-key: ${TURNSTILE_SECRET_KEY}
+    site-key: ${TURNSTILE_SITE_KEY}
+    verify-url: ${TURNSTILE_VERIFY_URL}
+    enabled: ${TURNSTILE_ENABLED}
