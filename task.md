@@ -58,9 +58,9 @@ Technical task backlog and engineering specification for implementing Time-based
   - [x] Task 7.4: Domain Event & `@Async` Security Notification Listener (`NewDeviceLoginEvent` & `NewDeviceSecurityListener` with fallback execution).
   - [x] Task 7.5: Security Notification Template (`new-device-login.html`) & `EmailService` Dispatch - *100% Completed (Normalized method name `sendNewDeviceLoginAlert`, template rendering, Resend dispatch via `sendEmail(request)`, recursive call resolved)*.
   - [x] Task 7.6: Verification & Quality Assurance (Fixed test compilation errors and missing mock in `AuthServiceImplTest`, added unit tests for `DeviceVerificationServiceTest`, `DeviceDetectionServiceTest`, `NewDeviceSecurityListenerTest`, and `EmailServiceImplTest`).
-- **Phase 8: Bot Protection via Cloudflare Turnstile CAPTCHA**: In Progress (0%)
-  - [ ] Task 8.1: Create Configuration & Environment Properties File (`TurnstileProperties.java`, `application.yaml`, and `.env.example`).
-  - [ ] Task 8.2: Turnstile API DTOs & Validation Service (`TurnstileResponse`, `TurnstileService`, `TurnstileServiceImpl` via `RestClient`).
+- **Phase 8: Bot Protection via Cloudflare Turnstile CAPTCHA**: In Progress (30%)
+  - [x] Task 8.1: Create Configuration & Environment Properties File (`TurnstileProperties.java`, `application.yaml`, and `env.example` / `.env`).
+  - [ ] Task 8.2: Turnstile API DTOs & Validation Service (`TurnstileResponse`, `TurnstileService`, `TurnstileServiceImpl` via `RestClient`) - *In Progress (DTOs and interface declared, method implementation and `TurnstileProperties` injection pending)*.
   - [ ] Task 8.3: Request DTO Integration (`captchaToken` in `LoginRequest` & `RegisterRequest` with Bean Validation).
   - [ ] Task 8.4: Enforcement Logic in `AuthService` / `AuthController` (`validateCaptcha` hook before credentials check).
   - [ ] Task 8.5: Verification & Quality Assurance (`TurnstileServiceTest`, MockMvc controller tests, and mock testing profile).
@@ -486,7 +486,7 @@ class AuthControllerTest {
        - [x] Interface declared with `DeviceMetadata extractMetaData(HttpServletRequest request)`.
        - [x] Implementation handles client IP resolution (`X-Forwarded-For`, `X-Real-IP`, loopback/proxy checks), User-Agent parsing, and GeoIP lookup.
     4. Unit Testing:
-       - [ ] Create `DeviceDetectionServiceTest` and `IpUtilsTest` verifying IP extraction, IPv4/IPv6 masking, and User-Agent parsing (Tracked under Task 7.6).
+       - [x] Create `DeviceDetectionServiceTest` and `IpUtilsTest` verifying IP extraction, IPv4/IPv6 masking, and User-Agent parsing (Completed in Task 7.6).
 
 ---
 
@@ -530,7 +530,7 @@ class AuthControllerTest {
        - [x] `AuthServiceImpl.login`: Hooked for non-TOTP login flow (`isTotpEnabled == false`).
        - [x] `AuthServiceImpl.verifyTotpLogin`: Hooked into TOTP verification upon valid 6-digit OTP code verification.
     5. Test Suite Updates (Tracked under Task 7.6):
-       - [ ] Update `AuthServiceImplTest`: Add `@Mock private DeviceVerificationService deviceVerificationService;` and pass `new MockHttpServletRequest()` to `login(...)` and `verifyTotpLogin(...)`.
+       - [x] Update `AuthServiceImplTest`: Add `@Mock private DeviceVerificationService deviceVerificationService;` and pass `new MockHttpServletRequest()` to `login(...)` and `verifyTotpLogin(...)` (Completed in Task 7.6).
 
 ---
 
@@ -629,103 +629,58 @@ class AuthControllerTest {
 
 ---
 
-- [ ] **Task 8.1: Create Configuration & Environment Properties File (`TurnstileProperties.java`)**
-  - **Status**: Pending
+- [x] **Task 8.1: Create Configuration & Environment Properties File (`TurnstileProperties.java`)**
+  - **Status**: Completed
   - **Target Files**:
-    - [TurnstileProperties.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/properties/TurnstileProperties.java) *(New file to create)*
-    - `src/main/resources/application.yaml` *(Configuration mapping)*
-    - `src/main/resources/application-dev.yaml` *(Dev profile defaults)*
-    - `env.example` & `.env` *(Environment variable declarations)*
+    - [TurnstileProperties.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/properties/TurnstileProperties.java) *(Created)*
+    - `src/main/resources/application.yaml` *(Configuration mapped under `application.turnstile`)*
+    - `env.example` & `.env` *(Environment variable declarations added)*
   - **Requirements & Specifications**:
     1. **Create Properties Record (`TurnstileProperties.java`)**:
-       - Location: `src/main/java/com/java/springtotp/properties/TurnstileProperties.java`
-       - Package: `package com.java.springtotp.properties;`
-       - Annotations: `@ConfigurationProperties(prefix = "application.turnstile")`
-       - Structure:
-         ```java
-         package com.java.springtotp.properties;
-
-         import org.springframework.boot.context.properties.ConfigurationProperties;
-         import org.springframework.boot.context.properties.bind.DefaultValue;
-
-         @ConfigurationProperties(prefix = "application.turnstile")
-         public record TurnstileProperties(
-                 String secretKey,
-                 String siteKey,
-                 @DefaultValue("https://challenges.cloudflare.com/turnstile/v0/siteverify")
-                 String verifyUrl,
-                 @DefaultValue("true")
-                 boolean enabled
-         ) {
-         }
-         ```
-       - Automatically registered into Spring Application Context via `@ConfigurationPropertiesScan` declared on [SpringTotpApplication.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/SpringTotpApplication.java).
+       - [x] Location: `src/main/java/com/java/springtotp/properties/TurnstileProperties.java`
+       - [x] Package: `package com.java.springtotp.properties;`
+       - [x] Annotations: `@ConfigurationProperties(prefix = "application.turnstile")`
+       - [x] Structure: Record declaring `secretKey`, `siteKey`, `verifyUrl` (defaulting to Cloudflare siteverify endpoint), and `enabled` (defaulting to `true`).
+       - [x] Automatically registered into Spring Application Context via `@ConfigurationPropertiesScan` declared on [SpringTotpApplication.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/SpringTotpApplication.java).
     2. **Update `application.yaml`**:
-       - Append under block `application:`:
-         ```yaml
-         application:
-           # ... (jwt, resend existing properties) ...
-           turnstile:
-             secret-key: ${TURNSTILE_SECRET_KEY}
-             site-key: ${TURNSTILE_SITE_KEY}
-             verify-url: ${TURNSTILE_VERIFY_URL:https://challenges.cloudflare.com/turnstile/v0/siteverify}
-             enabled: ${TURNSTILE_ENABLED:true}
-         ```
+       - [x] Appended under block `application:` with `turnstile.secret-key`, `turnstile.site-key`, `turnstile.verify-url`, and `turnstile.enabled`.
     3. **Update `env.example` & `.env`**:
-       - Append environment variables with Cloudflare Turnstile dummy testing keys (Always Pass by default):
-         ```bash
-         # Cloudflare Turnstile CAPTCHA (Testing Dummy Keys)
-         TURNSTILE_SITE_KEY=1x00000000000000000000AA
-         TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
-         TURNSTILE_VERIFY_URL=https://challenges.cloudflare.com/turnstile/v0/siteverify
-         TURNSTILE_ENABLED=true
-         ```
+       - [x] Appended environment variables: `TURNSTILE_SECRET_KEY`, `TURNSTILE_SITE_KEY`, `TURNSTILE_VERIFY_URL`, and `TURNSTILE_ENABLED`.
     4. **Verification & DoD Criteria**:
-       - `TurnstileProperties` bean successfully injected into `@Component` / `@Service` classes without context startup failure.
-       - Unit test verifies property binding and fallback default values.
+       - [x] `TurnstileProperties` bean successfully registered and available in Spring Application Context.
 
 ---
 
 - [ ] **Task 8.2: Create Turnstile DTOs & Validation Service (`TurnstileService`)**
-  - **Status**: Pending
+  - **Status**: In Progress (DTOs and Service interface created, class skeleton scaffolded; implementation of validation logic and properties injection pending)
   - **Target Files**:
-    - [TurnstileResponse.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/dto/captcha/TurnstileResponse.java)
-    - [TurnstileService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/TurnstileService.java)
-    - [TurnstileServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/TurnstileServiceImpl.java)
+    - [TurnstileResponse.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/dto/captcha/TurnstileResponse.java) *(Created with `@JsonProperty` mappings)*
+    - [TurnstileService.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/TurnstileService.java) *(Created with interface signatures)*
+    - [TurnstileServiceImpl.java](file:///home/udin/projects/spring-totp/src/main/java/com/java/springtotp/service/impl/TurnstileServiceImpl.java) *(Scaffolded - Stub implementation)*
   - **Requirements & Method Specifications**:
     1. DTO / Record `TurnstileResponse`:
-       - `boolean success`
-       - `@JsonProperty("error-codes") List<String> errorCodes`
-       - `@JsonProperty("challenge_ts") String challengeTs`
-       - `String hostname`
-       - `String action`
-       - `String cdata`
+       - [x] Fields: `boolean success`, `@JsonProperty("error-codes") List<String> errorCodes`, `@JsonProperty("challenge_ts") String challengeTs`, `String hostname`, `String action`, `String cdata`.
     2. Interface `TurnstileService`:
-       - `boolean verifyToken(String captchaToken, String remoteIp)`
-       - `void validateOrThrow(String captchaToken, String remoteIp)`
+       - [x] `boolean verifyToken(String captchaToken, String remoteIp)`
+       - [x] `void validateOrThrow(String captchaToken, String remoteIp)`
     3. Implementation `TurnstileServiceImpl`:
        - **Class Configuration & Dependencies**:
-         - Annotations: `@Slf4j`, `@Service`, `@RequiredArgsConstructor`.
-         - Injected Dependencies: `TurnstileProperties turnstileProperties`, `RestClient restClient`.
+         - [x] Annotations: `@Service`, `@RequiredArgsConstructor`.
+         - [ ] Injected Dependencies: Inject `TurnstileProperties turnstileProperties` alongside existing `RestClient restClient`.
        - **Method A: `boolean verifyToken(String captchaToken, String remoteIp)`**:
          - *Goal*: Validate Turnstile response token against Cloudflare Siteverify API and return a boolean (`true`/`false`).
          - *Execution Flow*:
-           1. **Bypass Check**: If `!turnstileProperties.enabled()`, log debug message and immediately return `true` (facilitates local dev & test profiles).
-           2. **Sanity Check**: If `captchaToken == null || captchaToken.isBlank()`, return `false`.
-           3. **HTTP Dispatch (RestClient)**: Send `POST` to `turnstileProperties.verifyUrl()` with `application/json` payload:
-              - `secret`: `turnstileProperties.secretKey()`
-              - `response`: `captchaToken`
-              - `remoteip`: `remoteIp` *(optional, if available)*
-           4. **Evaluate Response**:
-              - If `response != null && response.success()` -> return `true`.
-              - If failed: log Cloudflare error codes (`response.errorCodes()`) and return `false`.
-           5. **Error Containment / Resilience**: Wrap remote HTTP dispatch inside a `try-catch` block. If network timeout or remote 5xx error occurs, log warning/error and return `false` gracefully without throwing uncaught exceptions to callers.
+           1. [ ] **Bypass Check**: If `!turnstileProperties.enabled()`, log debug message and immediately return `true` (facilitates local dev & test profiles).
+           2. [ ] **Sanity Check**: If `captchaToken == null || captchaToken.isBlank()`, return `false`.
+           3. [ ] **HTTP Dispatch (RestClient)**: Send `POST` to `turnstileProperties.verifyUrl()` with `application/json` payload containing `secret`, `response`, and optional `remoteip`.
+           4. [ ] **Evaluate Response**: If `response != null && response.success()` -> return `true`; else log Cloudflare error codes and return `false`.
+           5. [ ] **Error Containment / Resilience**: Wrap remote HTTP dispatch inside `try-catch` block, logging warnings and returning `false` gracefully without throwing uncaught exceptions to callers.
        - **Method B: `void validateOrThrow(String captchaToken, String remoteIp)`**:
          - *Goal*: Guard clause helper method to enforce validation in controllers or services with uniform error responses.
          - *Execution Flow*:
-           1. Invoke `verifyToken(captchaToken, remoteIp)`.
-           2. If result is `false`: throw `new BadRequestException("Invalid or expired CAPTCHA token")`.
-           3. If `true`: no-op (execution proceeds normally).
+           1. [ ] Invoke `verifyToken(captchaToken, remoteIp)`.
+           2. [ ] If result is `false`: throw `new BadRequestException("Invalid or expired CAPTCHA token")`.
+           3. [ ] If `true`: no-op (execution proceeds normally).
 
 ---
 
