@@ -30,4 +30,11 @@ public class RestClientConfig {
                 .build();
     }
 
+    @Bean
+    public RestClient turnstileClient(
+            @Value("${TURNSTILE_SECRET_KEY}") String secret,
+            @Value("${}") String response,
+
+    )
+
 }

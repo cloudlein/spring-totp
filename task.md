@@ -681,7 +681,7 @@ class AuthControllerTest {
            1. [ ] Invoke `verifyToken(captchaToken, remoteIp)`.
            2. [ ] If result is `false`: throw `new BadRequestException("Invalid or expired CAPTCHA token")`.
            3. [ ] If `true`: no-op (execution proceeds normally).
-
+d
 ---
 
 - [ ] **Task 8.3: Request DTO Integration (`captchaToken`)**
