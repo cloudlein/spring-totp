@@ -31,10 +31,15 @@ public class RestClientConfig {
     }
 
     @Bean
-    public RestClient turnstileClient(
-            @Value("${TURNSTILE_SECRET_KEY}") String secret,
-            @Value("${}") String response,
+    public RestClient turnstileClient(){
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
 
-    )
+        factory.setConnectTimeout(Duration.ofSeconds(3));
+        factory.setReadTimeout(Duration.ofSeconds(5));
+
+        return RestClient.builder()
+                .requestFactory(factory)
+                .build();
+    }
 
 }
